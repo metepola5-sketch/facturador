@@ -1,0 +1,2744 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Facturador · Alexander Mete Pola</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  /* ── BEATSTARS PANEL ── */
+  .bs-drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 40px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .bs-drop-zone:hover, .bs-drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(200,245,66,0.04);
+    color: var(--accent);
+  }
+  .bs-drop-icon { font-size: 36px; margin-bottom: 12px; }
+
+  .bs-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+  }
+  .bs-table th {
+    background: var(--surface2);
+    color: var(--accent);
+    padding: 8px 10px;
+    text-align: left;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .bs-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+    color: var(--text);
+  }
+  .bs-table tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+  .bs-table td input, .bs-table td select {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    width: 100%;
+    min-width: 60px;
+  }
+  .bs-table td input:focus {
+    background: rgba(200,245,66,0.06);
+    border-radius: 3px;
+  }
+  .bs-del-btn {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: color 0.2s;
+  }
+  .bs-del-btn:hover { color: #ff4d4d; }
+
+  .filter-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .filter-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .filter-btn.active { background: var(--accent); color: #0e0e0e; border-color: var(--accent); font-weight: 500; }
+</style>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap');
+
+  :root {
+    --bg: #0e0e0e;
+    --surface: #161616;
+    --surface2: #1e1e1e;
+    --border: #2a2a2a;
+    --accent: #c8f542;
+    --accent2: #f5a623;
+    --text: #f0f0f0;
+    --muted: #666;
+    --danger: #ff4d4d;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* GRID BG */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(200,245,66,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(200,245,66,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 40px 24px; }
+
+  /* HEADER */
+  header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 48px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo-block h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    color: var(--accent);
+  }
+  .logo-block p {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+  .header-meta {
+    text-align: right;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.8;
+  }
+  .header-meta span { color: var(--text); }
+
+  /* TABS */
+  .tabs {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 32px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 4px;
+  }
+  .tab {
+    flex: 1;
+    padding: 10px 16px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s;
+  }
+  .tab.active {
+    background: var(--accent);
+    color: #0e0e0e;
+    font-weight: 500;
+  }
+  .tab:not(.active):hover { color: var(--text); background: var(--surface2); }
+
+  /* PANELS */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* SECTION TITLE */
+  .section-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+
+  /* QUICK COMMAND */
+  .cmd-bar {
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin-bottom: 32px;
+    position: relative;
+  }
+  .cmd-bar label {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 10px;
+  }
+  .cmd-input-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .cmd-prefix {
+    font-size: 22px;
+    color: var(--accent);
+    opacity: 0.5;
+  }
+  .cmd-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-family: 'DM Mono', monospace;
+    font-size: 16px;
+    color: var(--text);
+    caret-color: var(--accent);
+  }
+  .cmd-input::placeholder { color: var(--muted); }
+  .cmd-btn {
+    background: var(--accent);
+    color: #0e0e0e;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .cmd-btn:hover { background: #d4f75a; transform: translateY(-1px); }
+  .cmd-hint {
+    margin-top: 10px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .cmd-hint code { color: var(--accent); font-size: 11px; }
+
+  /* GRID DE CLIENTES */
+  .clients-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .client-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .client-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px; height: 100%;
+    background: var(--border);
+    transition: background 0.2s;
+  }
+  .client-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .client-card:hover::before { background: var(--accent); }
+  .client-card.selected { border-color: var(--accent); background: rgba(200,245,66,0.05); }
+  .client-card.selected::before { background: var(--accent); }
+  .client-name {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+  .client-nif {
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+  .client-detail {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  .client-status {
+    position: absolute;
+    top: 14px; right: 14px;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+  .status-activo { background: rgba(200,245,66,0.15); color: var(--accent); }
+  .status-potencial { background: rgba(245,166,35,0.15); color: var(--accent2); }
+
+  .add-client-card {
+    background: transparent;
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: var(--muted);
+    font-size: 13px;
+    min-height: 120px;
+  }
+  .add-client-card:hover { border-color: var(--accent); color: var(--accent); }
+  .add-client-card .plus { font-size: 24px; }
+
+  .edit-btn {
+    margin-top: 12px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 5px 12px;
+    border-radius: 5px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: block;
+  }
+  .edit-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .edit-num-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    width: 28px; height: 28px;
+    border-radius: 5px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .edit-num-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .concepto-row {
+    display: grid;
+    grid-template-columns: 1fr 110px 36px;
+    gap: 8px;
+    align-items: start;
+    margin-bottom: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    transition: border-color 0.2s;
+  }
+  .concepto-row:focus-within { border-color: var(--accent); }
+  .concepto-row textarea {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    resize: none;
+    min-height: 36px;
+    padding: 0;
+  }
+  .concepto-row input[type=number] {
+    background: transparent;
+    border: none;
+    border-left: 1px solid var(--border);
+    outline: none;
+    color: var(--accent2);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    text-align: right;
+    padding: 0 0 0 10px;
+    width: 100%;
+  }
+  .concepto-del-btn {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 0;
+    line-height: 1;
+    align-self: center;
+    transition: color 0.2s;
+  }
+  .concepto-del-btn:hover { color: #ff4d4d; }
+
+  /* FORM FACTURA */
+  .invoice-form {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    margin-bottom: 24px;
+  }
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .form-row.single { grid-template-columns: 1fr; }
+  .form-row.triple { grid-template-columns: 1fr 1fr 1fr; }
+  .field label {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .field input, .field select, .field textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    border-color: var(--accent);
+  }
+  .field select option { background: var(--surface2); }
+  .field textarea { resize: vertical; min-height: 70px; }
+
+  /* TOTALES */
+  .totals-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin-top: 20px;
+  }
+  .totals-grid {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px 32px;
+    align-items: center;
+  }
+  .total-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .total-value { text-align: right; font-size: 14px; }
+  .total-label.big { color: var(--text); font-size: 13px; font-weight: 500; }
+  .total-value.big { font-size: 22px; color: var(--accent); font-family: 'Syne', sans-serif; font-weight: 700; }
+  .divider-line { grid-column: 1/-1; height: 1px; background: var(--border); margin: 8px 0; }
+
+  /* BOTONES ACCIÓN */
+  .actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+  }
+  .btn-primary {
+    flex: 1;
+    padding: 14px 24px;
+    background: var(--accent);
+    color: #0e0e0e;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 14px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-primary:hover { background: #d4f75a; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(200,245,66,0.2); }
+  .btn-secondary {
+    padding: 14px 20px;
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-secondary:hover { border-color: var(--text); }
+
+  /* PREVIEW BADGE */
+  .preview-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(200,245,66,0.1);
+    border: 1px solid var(--accent);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 11px;
+    color: var(--accent);
+    margin-bottom: 20px;
+    letter-spacing: 1px;
+  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  /* HISTORIAL */
+  .history-list { display: flex; flex-direction: column; gap: 8px; }
+  .history-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: border-color 0.2s;
+  }
+  .history-item:hover { border-color: var(--border); }
+  .history-item-left { display: flex; align-items: center; gap: 16px; }
+  .history-num { font-size: 11px; color: var(--accent); letter-spacing: 1px; min-width: 70px; }
+  .history-client { font-size: 13px; font-family: 'Syne', sans-serif; font-weight: 600; }
+  .history-concept { font-size: 11px; color: var(--muted); }
+  .history-amount { font-size: 16px; font-family: 'Syne', sans-serif; font-weight: 700; color: var(--text); }
+  .history-date { font-size: 11px; color: var(--muted); text-align: right; }
+
+  /* MODAL */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.8);
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 32px;
+    width: 100%;
+    max-width: 500px;
+    margin: 24px;
+  }
+  .modal h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 18px;
+    font-weight: 800;
+    margin-bottom: 24px;
+    color: var(--accent);
+  }
+  .modal-actions { display: flex; gap: 10px; margin-top: 24px; }
+  .btn-danger {
+    background: transparent;
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    bottom: 32px;
+    right: 32px;
+    background: var(--accent);
+    color: #0e0e0e;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    z-index: 200;
+    transform: translateY(100px);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  /* CLIENT DETAIL VIEW */
+  .client-detail-view {
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+  }
+  .selected-client-info h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 18px;
+    font-weight: 800;
+    margin-bottom: 4px;
+  }
+  .selected-client-info p { font-size: 12px; color: var(--muted); }
+  .selected-client-info .nif-tag {
+    display: inline-block;
+    background: rgba(200,245,66,0.1);
+    color: var(--accent);
+    padding: 2px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    margin-top: 6px;
+  }
+  .change-client-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 11px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+    font-family: 'DM Mono', monospace;
+  }
+  .change-client-btn:hover { border-color: var(--text); color: var(--text); }
+
+  /* NUM FACTURA */
+  .invoice-num-display {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 20px;
+    color: var(--accent);
+    margin-bottom: 20px;
+  }
+
+  @media (max-width: 640px) {
+    .form-row, .form-row.triple { grid-template-columns: 1fr; }
+    header { flex-direction: column; align-items: flex-start; gap: 12px; }
+    .header-meta { text-align: left; }
+    .tabs { flex-wrap: wrap; }
+    .tab { flex: none; font-size: 10px; padding: 8px 10px; }
+    .bs-table { font-size: 10px; }
+    .bs-table th, .bs-table td { padding: 5px 6px; }
+    .history-item { flex-direction: column; align-items: flex-start; gap: 10px; }
+    #bulkBar { flex-wrap: wrap; justify-content: center; left: 16px; right: 16px; transform: none; }
+    .concepto-row { grid-template-columns: 1fr 90px 28px; }
+    .actions { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="logo-block">
+      <h1>⚡ FACTURADOR</h1>
+      <p>Sistema de facturación · Alexander Mete Pola</p>
+    </div>
+    <div class="header-meta">
+      <div>NIF: <span>53719609G</span></div>
+      <div>Tel: <span>633 686 665</span></div>
+      <div style="margin-top:8px;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:11px;color:var(--muted);">Próxima factura:</span>
+        <span id="invoiceNumDisplay" style="color:var(--accent);font-weight:700;font-size:13px;">2026/013</span>
+        <button onclick="openResetModal()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:4px;font-size:10px;cursor:pointer;font-family:'DM Mono',monospace;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">↺ RESET</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('facturar')">⚡ Generar Factura</button>
+    <button class="tab" onclick="switchTab('clientes')">👥 Clientes</button>
+    <button class="tab" onclick="switchTab('beatstars')">🎵 BeatStars</button>
+    <button class="tab" onclick="switchTab('historial')">📋 Historial</button>
+    <button class="tab" onclick="switchTab('resumen')">📊 Resumen</button>
+  </div>
+
+  <!-- PANEL FACTURAR -->
+  <div id="panel-facturar" class="panel active">
+
+    <div class="cmd-bar">
+      <label>⚡ Comando rápido</label>
+      <div class="cmd-input-row">
+        <span class="cmd-prefix">›</span>
+        <input class="cmd-input" id="cmdInput" type="text"
+          placeholder="factura para SALUD Y LIBERTAD por 1500 sin IRPF"
+          onkeydown="if(event.key==='Enter') parseCmd()">
+        <button class="cmd-btn" onclick="parseCmd()">GENERAR</button>
+      </div>
+      <p class="cmd-hint">
+        Escribe: <code>factura para [cliente] por [importe]</code> · 
+        añade <code>sin IRPF</code> · <code>concepto: [texto]</code>
+      </p>
+    </div>
+
+    <!-- cliente seleccionado -->
+    <div id="selectedClientView" style="display:none">
+      <div class="client-detail-view">
+        <div class="selected-client-info">
+          <h3 id="selName">—</h3>
+          <p id="selAddr">—</p>
+          <span class="nif-tag" id="selNif">—</span>
+        </div>
+        <button class="change-client-btn" onclick="clearClientSelection()">✕ Cambiar cliente</button>
+      </div>
+    </div>
+
+    <div id="clientPickerSection">
+      <p class="section-title">Selecciona cliente</p>
+      <div class="clients-grid" id="clientGridFact"></div>
+    </div>
+
+    <!-- FORM -->
+    <div class="invoice-form">
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+        <div class="invoice-num-display" id="invoiceNumDisplayForm">Nº 2026/013</div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>Fecha de emisión</label>
+          <input type="date" id="fFecha">
+        </div>
+        <div class="field">
+          <label>Fecha de vencimiento</label>
+          <input type="date" id="fVencimiento">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="field">
+          <label>Tipo de servicio</label>
+          <select id="fTipo" onchange="updateFilenamePreview()">
+            <option value="FP">FP — Fee de producción</option>
+            <option value="MM">MM — Mix y master</option>
+            <option value="ROY">ROY — Royalties</option>
+            <option value="DJ">DJ — Caché DJ</option>
+            <option value="SES">SES — Sesión suelta</option>
+            <option value="SON">SON — Técnico de sonido</option>
+            <option value="BT">BT — Venta de beat</option>
+            <option value="BTS">BTS — Venta en BeatStars</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Nombre del archivo <span style="color:var(--muted);font-size:10px">(concepto corto para el nombre)</span></label>
+          <input type="text" id="fNombreArchivo" placeholder="Ej: COMPOSICION-TEMA-X" oninput="updateFilenamePreview()" style="text-transform:uppercase">
+        </div>
+      </div>
+
+      <div id="filenamePreview" style="margin:-8px 0 16px; padding:8px 14px; background:var(--surface2); border-radius:6px; font-size:11px; color:var(--muted);">
+        📄 <span id="filenamePreviewText" style="color:var(--accent)">2026_004_FP_CLIENTE_CONCEPTO.pdf</span>
+      </div>
+
+      <!-- CONCEPTOS MÚLTIPLES -->
+      <div style="margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <label style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);">Conceptos</label>
+          <button onclick="addConcepto()" style="background:transparent;border:1px solid var(--accent);color:var(--accent);padding:4px 12px;border-radius:5px;font-size:11px;cursor:pointer;font-family:'DM Mono',monospace;">+ Añadir línea</button>
+        </div>
+        <div id="conceptosContainer"></div>
+      </div>
+
+      <div class="form-row" style="grid-template-columns:1fr 1fr;">
+        <div class="field">
+          <label>IVA (%)</label>
+          <select id="fIva" onchange="calcTotals()">
+            <option value="21">21%</option>
+            <option value="10">10%</option>
+            <option value="4">4%</option>
+            <option value="0">0%</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>IRPF (%)</label>
+          <select id="fIrpf" onchange="calcTotals()">
+            <option value="15">15%</option>
+            <option value="7">7%</option>
+            <option value="0">Sin IRPF</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="totals-box">
+        <div class="totals-grid">
+          <span class="total-label">Base imponible</span>
+          <span class="total-value" id="tBase">0,00 €</span>
+          <span class="total-label">IVA</span>
+          <span class="total-value" id="tIva" style="color:var(--accent2)">+0,00 €</span>
+          <span class="total-label">Retención IRPF</span>
+          <span class="total-value" id="tIrpf" style="color:var(--danger)">-0,00 €</span>
+          <div class="divider-line"></div>
+          <span class="total-label big">TOTAL A COBRAR</span>
+          <span class="total-value big" id="tTotal">0,00 €</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn-primary" onclick="generatePDF()">⬇ DESCARGAR PDF</button>
+      <button class="btn-secondary" onclick="previewInvoice()">👁 Vista previa</button>
+    </div>
+  </div>
+
+  <!-- PANEL CLIENTES -->
+  <div id="panel-clientes" class="panel">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <p class="section-title">Base de clientes</p>
+      <button class="btn-secondary" onclick="openNewClientModal()" style="font-size:12px; padding:8px 14px;">+ Nuevo cliente</button>
+    </div>
+    <div class="clients-grid" id="clientGridMain"></div>
+  </div>
+
+  <!-- PANEL HISTORIAL -->
+  <!-- PANEL BEATSTARS -->
+  <div id="panel-beatstars" class="panel">
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+      <div>
+        <p class="section-title">Importar ventas BeatStars</p>
+        <p style="font-size:12px; color:var(--muted); margin-top:4px;">Exporta el CSV desde BeatStars · Cárgalo aquí · Genera facturas y Excel automáticamente</p>
+      </div>
+      <div style="display:flex;gap:10px;" id="bsExportBtns" style="display:none">
+        <button class="btn-secondary" onclick="clearBSFacturas()" style="font-size:11px;padding:8px 14px;">✕ Limpiar</button>
+        <button class="btn-secondary" onclick="exportBSPDFs()" style="font-size:11px;padding:8px 14px;">📄 Generar PDFs</button>
+        <button class="btn-primary" onclick="exportBSExcel()" style="padding:10px 20px;font-size:13px;">⬇ Exportar Excel</button>
+      </div>
+    </div>
+
+    <!-- Drop zone CSV -->
+    <div id="bsDropZone" class="bs-drop-zone"
+      ondragover="event.preventDefault(); this.classList.add('drag-over')"
+      ondragleave="this.classList.remove('drag-over')"
+      ondrop="handleCSVDrop(event)"
+      onclick="document.getElementById('bsFileInput').click()">
+      <div class="bs-drop-icon">📊</div>
+      <p id="bsDropText">Arrastra el CSV de BeatStars aquí</p>
+      <p style="font-size:11px; color:var(--muted); margin-top:4px;">BeatStars Studio → Sales → Export CSV · o haz clic para seleccionarlo</p>
+      <input type="file" id="bsFileInput" accept=".csv" style="display:none" onchange="handleCSVFile(this.files[0])">
+    </div>
+
+    <!-- Tipo de cambio -->
+    <div style="margin-top:16px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px 20px; display:flex; align-items:center; gap:20px;">
+      <div>
+        <label style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px;">Tipo de cambio USD → EUR</label>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:13px;color:var(--muted);">1 USD =</span>
+          <input type="number" id="tcInput" step="0.001" min="0.1" max="2"
+            style="width:90px;background:var(--surface2);border:1px solid var(--accent);border-radius:6px;padding:8px 12px;color:var(--text);font-family:'DM Mono',monospace;font-size:14px;outline:none;"
+            onchange="TC_USD_EUR_user=parseFloat(this.value)||0.93;if(TC_USD_EUR_user<=0||TC_USD_EUR_user>5)TC_USD_EUR_user=0.93;localStorage.setItem('invoiceTC_AMP',TC_USD_EUR_user);this.value=TC_USD_EUR_user.toFixed(3)"
+            placeholder="0.930">
+          <span style="font-size:13px;color:var(--muted);">EUR</span>
+          <span style="font-size:11px;color:var(--muted);margin-left:8px;">Consulta el cambio del día en <a href="https://www.xe.com" target="_blank" style="color:var(--accent)">xe.com</a></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Confirmación + botón importar -->
+    <div id="bsConfirmBar" style="display:none; margin-top:16px; background:var(--surface); border:1px solid var(--accent); border-radius:10px; padding:16px 20px; align-items:center; justify-content:space-between; gap:16px;">
+      <div>
+        <p id="bsConfirmMsg" style="font-size:14px; color:var(--text); font-family:'Syne',sans-serif; font-weight:700;"></p>
+        <p id="bsConfirmList" style="font-size:11px; color:var(--muted); margin-top:6px; line-height:1.8;"></p>
+      </div>
+      <div style="display:flex;gap:10px;flex-shrink:0;">
+        <button class="btn-secondary" onclick="cancelBSStage()" style="font-size:11px;padding:8px 14px;">✕ Cancelar</button>
+        <button class="btn-primary" onclick="importBSStaged()" style="padding:12px 24px; font-size:14px;">⚡ IMPORTAR</button>
+      </div>
+    </div>
+
+    <!-- Tabla de ventas procesadas -->
+    <div id="bsTableWrap" style="display:none; margin-top:24px; overflow-x:auto;">
+      <table class="bs-table" id="bsTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Fecha</th>
+            <th>Fecha cobro</th>
+            <th>N.º factura</th>
+            <th>Cliente</th>
+            <th>Tipo</th>
+            <th>Beat</th>
+            <th>Base (€)</th>
+            <th>IVA (€)</th>
+            <th>Ret. IRPF (€)</th>
+            <th>Total (€)</th>
+            <th>Cobrado (€)</th>
+            <th>Beneficio</th>
+            <th>Total Imp.</th>
+            <th>Estado</th>
+            <th>Invoice BS</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="bsTableBody"></tbody>
+      </table>
+      <p style="font-size:10px;color:var(--muted);margin-top:8px;">* Importes en € usando tipo de cambio 0,93 USD/EUR. Edita cualquier celda antes de exportar.</p>
+    </div>
+
+  </div>
+
+  <!-- PANEL HISTORIAL -->
+  <div id="panel-historial" class="panel">
+
+    <!-- Barra de filtros -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin-bottom:20px;">
+
+      <!-- Fila 1: búsqueda + borrar -->
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;">
+        <div style="flex:1;position:relative;">
+          <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px;">🔍</span>
+          <input type="text" id="hFiltroTexto" placeholder="Buscar por cliente, concepto o nº factura..."
+            oninput="renderHistory()"
+            style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:9px 12px 9px 34px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;outline:none;">
+        </div>
+        <button class="btn-secondary" onclick="resetHistorialFiltros()" style="font-size:11px;padding:9px 14px;white-space:nowrap;">↺ Reset filtros</button>
+        <button class="btn-secondary" onclick="clearAllHistory()" style="font-size:11px;padding:9px 14px;color:#ff4d4d;border-color:#ff4d4d;white-space:nowrap;">🗑 Borrar todo</button>
+      </div>
+
+      <!-- Fila 2: trimestre -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+        <span style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;align-self:center;margin-right:4px;">Período</span>
+        <button class="filter-btn active" id="hBtnTodos" onclick="setHFiltro('trimestre','todos',this)">Todos</button>
+        <button class="filter-btn" onclick="setHFiltro('trimestre','Q1',this)">Q1 Ene–Mar</button>
+        <button class="filter-btn" onclick="setHFiltro('trimestre','Q2',this)">Q2 Abr–Jun</button>
+        <button class="filter-btn" onclick="setHFiltro('trimestre','Q3',this)">Q3 Jul–Sep</button>
+        <button class="filter-btn" onclick="setHFiltro('trimestre','Q4',this)">Q4 Oct–Dic</button>
+      </div>
+
+      <!-- Fila 3: tipo de servicio (dinámico) -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;" id="hFiltroTipos">
+        <span style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;align-self:center;margin-right:4px;">Tipo</span>
+      </div>
+
+      <!-- Fila 4: cliente + estado + importe -->
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <span style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Filtros</span>
+        <select id="hFiltroCliente" onchange="renderHistory()"
+          style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;">
+          <option value="">Todos los clientes</option>
+        </select>
+        <select id="hFiltroEstado" onchange="renderHistory()"
+          style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;">
+          <option value="todos">Válidas + Pruebas</option>
+          <option value="validas">Solo válidas</option>
+          <option value="pruebas">Solo pruebas</option>
+          <option value="cobradas">Cobradas</option>
+          <option value="pendientes">Pendientes de cobro</option>
+        </select>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:11px;color:var(--muted);">€</span>
+          <input type="number" id="hFiltroMin" placeholder="Mín" min="0" oninput="renderHistory()"
+            style="width:70px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;">
+          <span style="font-size:11px;color:var(--muted);">–</span>
+          <input type="number" id="hFiltroMax" placeholder="Máx" min="0" oninput="renderHistory()"
+            style="width:70px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;">
+        </div>
+      </div>
+    </div>
+
+    <!-- Barra de selección bulk -->
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--muted);">
+        <input type="checkbox" id="hSelectAll" onchange="toggleSelectAll(this.checked)"
+          style="accent-color:var(--accent);width:14px;height:14px;cursor:pointer;">
+        Seleccionar visibles
+      </label>
+      <button class="filter-btn" onclick="selectPendientes()" style="font-size:10px;">⏳ Sel. pendientes</button>
+      <button class="filter-btn" onclick="selectCobradas()" style="font-size:10px;">✓ Sel. cobradas</button>
+      <div id="hContador" style="font-size:11px;color:var(--muted);margin-left:auto;"></div>
+    </div>
+
+    <div class="history-list" id="historyList">
+      <p style="color:var(--muted); font-size:13px; padding:20px 0;">Aún no hay facturas generadas.</p>
+    </div>
+  </div>
+
+  <!-- BARRA FLOTANTE BULK -->
+  <div id="bulkBar" style="display:none;position:fixed;bottom:32px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--accent);border-radius:14px;padding:14px 20px;display:none;align-items:center;gap:12px;z-index:300;box-shadow:0 8px 32px rgba(0,0,0,0.5);white-space:nowrap;">
+    <span id="bulkInfo" style="font-size:12px;color:var(--accent);font-family:'Syne',sans-serif;font-weight:700;margin-right:4px;"></span>
+    <button onclick="bulkAction('cobrar')" style="background:rgba(77,255,145,0.15);border:1px solid #4dff91;color:#4dff91;padding:7px 14px;border-radius:8px;cursor:pointer;font-size:11px;font-family:'DM Mono',monospace;">✓ Cobradas</button>
+    <button onclick="bulkAction('pendiente')" style="background:rgba(245,166,35,0.15);border:1px solid var(--accent2);color:var(--accent2);padding:7px 14px;border-radius:8px;cursor:pointer;font-size:11px;font-family:'DM Mono',monospace;">⏳ Pendientes</button>
+    <button onclick="bulkAction('prueba')" style="background:rgba(255,77,77,0.15);border:1px solid #ff4d4d;color:#ff4d4d;padding:7px 14px;border-radius:8px;cursor:pointer;font-size:11px;font-family:'DM Mono',monospace;">🧪 Prueba</button>
+    <button onclick="bulkAction('restaurar')" style="background:rgba(200,245,66,0.1);border:1px solid var(--accent);color:var(--accent);padding:7px 14px;border-radius:8px;cursor:pointer;font-size:11px;font-family:'DM Mono',monospace;">↩ Restaurar</button>
+    <button onclick="bulkAction('eliminar')" style="background:rgba(255,77,77,0.1);border:1px solid #ff4d4d;color:#ff4d4d;padding:7px 14px;border-radius:8px;cursor:pointer;font-size:11px;font-family:'DM Mono',monospace;">🗑 Eliminar</button>
+    <button onclick="clearSelection()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 10px;border-radius:8px;cursor:pointer;font-size:11px;">✕</button>
+  </div>
+
+  <!-- PANEL RESUMEN -->
+  <div id="panel-resumen" class="panel">
+    <p class="section-title" style="margin-bottom:24px;">Resumen financiero</p>
+    <div id="resumenContent">
+      <p style="color:var(--muted);font-size:13px;">Genera facturas para ver el resumen.</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- MODAL DETALLE TIPO / EXCLUIDAS -->
+<div class="modal-overlay" id="detalleModalOverlay">
+  <div class="modal" style="max-width:680px;max-height:80vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <h2 id="detalleModalTitle" style="font-size:16px;">Detalle</h2>
+      <button onclick="document.getElementById('detalleModalOverlay').classList.remove('open')"
+        style="background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer;">✕</button>
+    </div>
+    <!-- Mini resumen -->
+    <div id="detalleModalResumen" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px;"></div>
+    <!-- Botón restaurar todo (solo excluidas) -->
+    <div id="detalleRestaurarTodo" style="display:none;margin-bottom:16px;">
+      <button class="btn-primary" onclick="restaurarTodas()" style="font-size:12px;padding:8px 18px;">↩ Restaurar todas</button>
+    </div>
+    <!-- Lista facturas -->
+    <div id="detalleModalLista"></div>
+  </div>
+</div>
+
+<!-- MODAL RESET CONTADOR -->
+<div class="modal-overlay" id="resetModalOverlay">
+  <div class="modal" style="max-width:380px;">
+    <h2>↺ Resetear numeración</h2>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:20px;">Introduce el número desde el cual quieres continuar. Las siguientes facturas se numerarán desde ahí.</p>
+    <div class="field">
+      <label>Año</label>
+      <input type="number" id="resetYear" style="margin-bottom:12px;" placeholder="2026">
+    </div>
+    <div class="field">
+      <label>Número de factura</label>
+      <input type="number" id="resetNum" min="1" placeholder="14">
+    </div>
+    <div style="margin-top:12px;padding:10px 14px;background:var(--surface2);border-radius:6px;">
+      <p style="font-size:11px;color:var(--muted);">La próxima factura será: <span id="resetPreview" style="color:var(--accent);font-weight:700;">—</span></p>
+    </div>
+    <div class="modal-actions" style="margin-top:20px;">
+      <button class="btn-primary" onclick="applyReset()" style="flex:1">Aplicar reset</button>
+      <button class="btn-secondary" onclick="document.getElementById('resetModalOverlay').classList.remove('open')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NUEVO / EDITAR CLIENTE -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h2 id="modalTitle">+ Nuevo cliente</h2>
+    <div class="form-row single">
+      <div class="field"><label>Nombre / Razón social</label><input type="text" id="mNombre" placeholder="EMPRESA SL"></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>NIF / CIF</label><input type="text" id="mNif" placeholder="B12345678"></div>
+      <div class="field"><label>Tipo</label>
+        <select id="mTipo">
+          <option>SOCIEDAD</option>
+          <option>AUTÓNOMO</option>
+          <option>PARTICULAR</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row single">
+      <div class="field"><label>Dirección</label><input type="text" id="mDireccion" placeholder="C/ Ejemplo 1, 28001 Madrid"></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Email</label><input type="email" id="mEmail" placeholder="email@empresa.com"></div>
+      <div class="field"><label>Tipo</label>
+        <select id="mTipo">
+          <option>SOCIEDAD</option>
+          <option>AUTÓNOMO</option>
+          <option>PARTICULAR</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-primary" id="modalSaveBtn" onclick="saveNewClient()" style="flex:1">Guardar cliente</button>
+      <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════
+// DATOS
+// ═══════════════════════════════════
+const DEFAULT_CLIENTS = [
+  {
+    nombre: "SALUD Y LIBERTAD SL",
+    nif: "B21619739",
+    tipo: "SOCIEDAD",
+    email: "saludylibertad25@gmail.com",
+    direccion: "C/ Arquitectura 2, Torre 11, Planta 5, Módulo 7, 41015 Sevilla",
+  },
+  {
+    nombre: "OZYMANDIAS CAPITAL SL",
+    nif: "B09673096",
+    tipo: "SOCIEDAD",
+    email: "ozymandiascapital@gmail.com",
+    direccion: "C/ Princesa 27 - Piso 20, Puerta 14, Derecha",
+  },
+  {
+    nombre: "RABAT MUSIC SL",
+    nif: "B10662963",
+    tipo: "SOCIEDAD",
+    email: "",
+    direccion: "Calle Acacia 17, Portal 5, 1ºC, 28918 Leganés, Madrid",
+  }
+];
+
+let clients = [];
+
+const ME = {
+  nombre: "ALEXANDER METE POLA",
+  nif: "53719609G",
+  direccion: "Avenida de Covibar 10, 4-5",
+  telefono: "633 686 665",
+  email: "metepola5@gmail.com",
+  banco: "BBVA",
+  iban: "ES63 0182 1641 6402 0164 4957",
+};
+
+let selectedClientIdx = null;
+let invoiceCounter = 13;
+let invoiceYear = new Date().getFullYear();
+let history = [];
+
+// ═══════════════════════════════════
+// CONCEPTOS MÚLTIPLES
+// ═══════════════════════════════════
+let conceptos = []; // [{desc, importe}]
+
+function initConceptos() {
+  conceptos = [{desc: '', importe: 0}];
+  renderConceptos();
+}
+
+function addConcepto() {
+  conceptos.push({desc: '', importe: 0});
+  renderConceptos();
+}
+
+function removeConcepto(i) {
+  if (conceptos.length <= 1) { showToast('⚠ Debe haber al menos un concepto'); return; }
+  conceptos.splice(i, 1);
+  renderConceptos();
+  calcTotals();
+}
+
+function updateConcepto(i, campo, valor) {
+  conceptos[i][campo] = campo === 'importe' ? parseFloat(valor.replace(',','.')) || 0 : valor;
+  calcTotals();
+  if (i === 0 && campo === 'desc') updateFilenamePreview();
+}
+
+function renderConceptos() {
+  const container = document.getElementById('conceptosContainer');
+  container.innerHTML = conceptos.map((c, i) => `
+    <div class="concepto-row">
+      <textarea rows="2" placeholder="Descripción del concepto..."
+        oninput="updateConcepto(${i},'desc',this.value)">${c.desc}</textarea>
+      <div style="display:flex;flex-direction:column;gap:2px;">
+        <span style="font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;padding-left:10px;">Importe €</span>
+        <input type="number" step="0.01" min="0" placeholder="0.00"
+          value="${c.importe || ''}"
+          oninput="updateConcepto(${i},'importe',this.value)">
+      </div>
+      <button class="concepto-del-btn" onclick="removeConcepto(${i})" title="Eliminar línea">✕</button>
+    </div>
+  `).join('');
+}
+function init() {
+  const saved     = localStorage.getItem('invoiceCounter_AMP');
+  const savedYear = localStorage.getItem('invoiceYear_AMP');
+  const savedTC   = localStorage.getItem('invoiceTC_AMP');
+
+  if (!saved || parseInt(saved) < 13) {
+    invoiceCounter = 13; invoiceYear = new Date().getFullYear(); saveCounter();
+  } else {
+    invoiceCounter = parseInt(saved);
+    invoiceYear = savedYear ? parseInt(savedYear) : new Date().getFullYear();
+  }
+  if (savedTC) TC_USD_EUR_user = parseFloat(savedTC);
+
+  // Cargar clientes — si hay guardados en localStorage los usa, si no usa los por defecto
+  const savedClients = localStorage.getItem('clients_AMP');
+  clients = savedClients ? JSON.parse(savedClients) : [...DEFAULT_CLIENTS];
+
+  const savedHistory = localStorage.getItem('invoiceHistory_AMP');
+  if (savedHistory) {
+    try {
+      const raw = JSON.parse(savedHistory);
+      // Normalizar entradas antiguas que puedan faltar campos
+      history = raw.map(h => ({
+        num:      h.num      || '—',
+        cliente:  h.cliente  || 'Desconocido',
+        concepto: h.concepto || '',
+        total:    parseFloat(h.total) || 0,
+        fecha:    h.fecha    || '',
+        tipo:     h.tipo     || '',
+        prueba:   !!h.prueba,
+        cobrada:  !!h.cobrada,
+      }));
+    } catch(e) {
+      console.warn('Historial corrupto, reseteando:', e);
+      history = [];
+    }
+  }
+
+  const tcEl = document.getElementById('tcInput');
+  if (tcEl) tcEl.value = TC_USD_EUR_user.toFixed(3);
+
+  renderClientGrids();
+  setDefaultDates();
+  initConceptos();
+  calcTotals();
+  updateInvoiceNum();
+  renderHistory();
+}
+
+function saveClients() {
+  localStorage.setItem('clients_AMP', JSON.stringify(clients));
+}
+
+function saveCounter() {
+  localStorage.setItem('invoiceCounter_AMP', invoiceCounter);
+  localStorage.setItem('invoiceYear_AMP', invoiceYear);
+}
+
+function setDefaultDates() {
+  const today = new Date();
+  const venc = new Date(today);
+  venc.setDate(venc.getDate() + 15);
+  document.getElementById('fFecha').value = today.toISOString().split('T')[0];
+  document.getElementById('fVencimiento').value = venc.toISOString().split('T')[0];
+}
+
+function updateInvoiceNum() {
+  const year = invoiceYear || new Date().getFullYear();
+  const num = String(invoiceCounter).padStart(3,'0');
+  const display = `${year}/${num}`;
+  const el1 = document.getElementById('invoiceNumDisplay');
+  const el2 = document.getElementById('invoiceNumDisplayForm');
+  if (el1) el1.textContent = display;
+  if (el2) el2.textContent = `Nº ${display}`;
+  updateFilenamePreview();
+}
+
+function openResetModal() {
+  document.getElementById('resetYear').value = invoiceYear || new Date().getFullYear();
+  document.getElementById('resetNum').value = invoiceCounter;
+  updateResetPreview();
+  document.getElementById('resetModalOverlay').classList.add('open');
+}
+
+function updateResetPreview() {
+  const y = parseInt(document.getElementById('resetYear').value) || new Date().getFullYear();
+  const n = parseInt(document.getElementById('resetNum').value) || 1;
+  document.getElementById('resetPreview').textContent = `${y}/${String(n).padStart(3,'0')}`;
+}
+
+function applyReset() {
+  const y = parseInt(document.getElementById('resetYear').value) || new Date().getFullYear();
+  const n = parseInt(document.getElementById('resetNum').value);
+  if (!n || n < 1) { showToast('⚠ Introduce un número válido'); return; }
+  invoiceYear = y;
+  invoiceCounter = n;
+  saveCounter();
+  updateInvoiceNum();
+  document.getElementById('resetModalOverlay').classList.remove('open');
+  showToast(`✓ Numeración reseteada a ${y}/${String(n).padStart(3,'0')}`);
+}
+
+// Tipo de cambio dinámico (el usuario lo puede cambiar en BeatStars)
+let TC_USD_EUR_user = 0.93;
+
+function saveCounter() {
+  localStorage.setItem('invoiceCounter_AMP', invoiceCounter);
+}
+
+function toggleEditNum() {
+  const input = document.getElementById('invoiceNumInput');
+  const saved = document.getElementById('invoiceNumSaved');
+  const isHidden = input.style.display === 'none';
+  if (isHidden) {
+    input.value = invoiceCounter;
+    input.style.display = 'inline-block';
+    input.style.width = '60px';
+    input.style.background = 'var(--surface2)';
+    input.style.border = '1px solid var(--accent)';
+    input.style.borderRadius = '4px';
+    input.style.padding = '4px 8px';
+    input.style.color = 'var(--text)';
+    input.style.fontFamily = 'DM Mono, monospace';
+    input.style.fontSize = '14px';
+    saved.style.display = 'none';
+    input.focus();
+    input.select();
+  } else {
+    input.style.display = 'none';
+    saved.style.display = 'inline';
+    setTimeout(() => saved.style.display = 'none', 2000);
+  }
+}
+
+function setInvoiceNum(val) {
+  const n = parseInt(val);
+  if (!isNaN(n) && n >= 1) {
+    invoiceCounter = n;
+    saveCounter();
+    updateInvoiceNum();
+  }
+}
+
+// ═══════════════════════════════════
+// TABS
+// ═══════════════════════════════════
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    const tabs = ['facturar','clientes','beatstars','historial','resumen'];
+    t.classList.toggle('active', tabs[i] === name);
+  });
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  if (name === 'resumen') renderResumen();
+}
+
+// ═══════════════════════════════════
+// RENDER CLIENTES
+// ═══════════════════════════════════
+function renderClientGrids() {
+  renderGrid('clientGridFact', true);
+  renderGrid('clientGridMain', false);
+}
+
+function renderGrid(containerId, forFactura) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  clients.forEach((c, i) => {
+    const div = document.createElement('div');
+    div.className = 'client-card' + (selectedClientIdx === i && forFactura ? ' selected' : '');
+    div.innerHTML = `
+      <div class="client-name">${c.nombre}</div>
+      <div class="client-nif">${c.nif}</div>
+      <div class="client-detail">${c.tipo}${c.email ? ' · ' + c.email : ''}</div>
+      ${!forFactura ? `<button class="edit-btn" onclick="openEditClientModal(${i}, event)">✏ Editar</button>` : ''}
+    `;
+    if (forFactura) div.onclick = () => selectClient(i);
+    el.appendChild(div);
+  });
+  if (forFactura) {
+    const add = document.createElement('div');
+    add.className = 'add-client-card';
+    add.onclick = openNewClientModal;
+    add.innerHTML = '<span class="plus">+</span> Nuevo cliente';
+    el.appendChild(add);
+  }
+}
+
+function selectClient(idx) {
+  selectedClientIdx = idx;
+  const c = clients[idx];
+  document.getElementById('selName').textContent = c.nombre;
+  document.getElementById('selNif').textContent = c.nif + ' · ' + c.tipo;
+  document.getElementById('selAddr').textContent = c.direccion || c.email || '—';
+  document.getElementById('selectedClientView').style.display = 'block';
+  document.getElementById('clientPickerSection').style.display = 'none';
+  renderClientGrids();
+  updateFilenamePreview();
+}
+
+function clearClientSelection() {
+  selectedClientIdx = null;
+  document.getElementById('selectedClientView').style.display = 'none';
+  document.getElementById('clientPickerSection').style.display = 'block';
+  renderClientGrids();
+}
+
+// ═══════════════════════════════════
+// CÁLCULOS
+// ═══════════════════════════════════
+function calcTotals() {
+  // Sumar todos los conceptos
+  const base = conceptos.reduce((s, c) => s + (c.importe || 0), 0);
+  const ivaPct = parseFloat(document.getElementById('fIva').value) || 0;
+  const irpfPct = parseFloat(document.getElementById('fIrpf').value) || 0;
+
+  const iva = base * ivaPct / 100;
+  const irpf = base * irpfPct / 100;
+  const total = base + iva - irpf;
+
+  const fmt = n => n.toLocaleString('es-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' €';
+  document.getElementById('tBase').textContent = fmt(base);
+  document.getElementById('tIva').textContent = '+' + fmt(iva);
+  document.getElementById('tIrpf').textContent = '-' + fmt(irpf);
+  document.getElementById('tTotal').textContent = fmt(total);
+  return { base, iva, ivaPct, irpf, irpfPct, total };
+}
+
+// ═══════════════════════════════════
+// PREVIEW NOMBRE ARCHIVO
+// ═══════════════════════════════════
+function updateFilenamePreview() {
+  const tipo = document.getElementById('fTipo').value;
+  const nombreArchivo = (document.getElementById('fNombreArchivo').value.trim() || 'CONCEPTO')
+    .toUpperCase().replace(/\s+/g,'-').replace(/[^A-Z0-9\-]/g,'');
+  const clienteSlug = selectedClientIdx !== null
+    ? clients[selectedClientIdx].nombre.replace(/\s+/g,'-').replace(/[^A-Z0-9\-]/g,'')
+    : 'CLIENTE';
+  const fechaSlug = (document.getElementById('fFecha').value || new Date().toISOString().slice(0,10)).replace(/-/g,'');
+  const numPad = String(invoiceCounter).padStart(3,'0');
+  document.getElementById('filenamePreviewText').textContent =
+    `${fechaSlug}_${numPad}_${tipo}_${clienteSlug}_${nombreArchivo}.pdf`;
+}
+
+function getInvoiceNumStr(counter) {
+  const y = invoiceYear || new Date().getFullYear();
+  return `${y}/${String(counter).padStart(3,'0')}`;
+}
+
+// ═══════════════════════════════════
+function parseCmd() {
+  const raw = document.getElementById('cmdInput').value.toLowerCase();
+  if (!raw.trim()) return;
+
+  // Buscar cliente
+  let foundIdx = null;
+  clients.forEach((c, i) => {
+    if (raw.includes(c.nombre.toLowerCase().split(' ')[0].toLowerCase())) foundIdx = i;
+    if (raw.includes(c.nif.toLowerCase())) foundIdx = i;
+  });
+
+  // Buscar importe
+  const match = raw.match(/(\d+[\.,]?\d*)\s*€?/);
+  const importe = match ? parseFloat(match[1].replace(',','.')) : null;
+
+  // Sin IRPF?
+  const sinIrpf = raw.includes('sin irpf') || raw.includes('sin retención');
+
+  // Concepto
+  const concMatch = raw.match(/concepto[:\s]+(.+?)(\s+por|\s*$)/i);
+  const conceptoTexto = concMatch ? concMatch[1] : '';
+
+  if (foundIdx !== null) selectClient(foundIdx);
+  if (sinIrpf) document.getElementById('fIrpf').value = '0';
+
+  // Aplicar a conceptos múltiples
+  if (importe || conceptoTexto) {
+    conceptos[0] = {
+      desc: conceptoTexto || conceptos[0].desc,
+      importe: importe || conceptos[0].importe
+    };
+    renderConceptos();
+  }
+
+  calcTotals();
+  document.getElementById('cmdInput').value = '';
+  showToast('✓ Formulario completado — revisa y descarga el PDF');
+}
+
+// ═══════════════════════════════════
+// GENERAR PDF
+// ═══════════════════════════════════
+function generatePDF() {
+  if (selectedClientIdx === null) { showToast('⚠ Selecciona un cliente primero'); return; }
+  const conceptosValidos = conceptos.filter(c => c.desc.trim() || c.importe > 0);
+  if (!conceptosValidos.length) { showToast('⚠ Añade al menos un concepto'); return; }
+  const base = conceptosValidos.reduce((s,c) => s + (c.importe||0), 0);
+  if (!base || base <= 0) { showToast('⚠ El importe total debe ser mayor que 0'); return; }
+
+  const client = clients[selectedClientIdx];
+  const { base: b, iva, ivaPct, irpf, irpfPct, total } = calcTotals();
+  const fecha = document.getElementById('fFecha').value;
+  const venc = document.getElementById('fVencimiento').value;
+  // Concepto para historial y nombre archivo = primer concepto con descripción
+  const concepto = conceptos.find(c=>c.desc.trim())?.desc || 'Servicios de producción musical';
+  const numFact = getInvoiceNumStr(invoiceCounter);
+  const fmt = n => n.toLocaleString('es-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' €';
+  const fmtDate = d => d ? d.split('-').reverse().join('/') : '—';
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W = 210, H = 297;
+  const ML = 20, MR = 20; // márgenes
+  const CW = W - ML - MR; // ancho útil: 170mm
+
+  // Fondo blanco
+  doc.setFillColor(255,255,255);
+  doc.rect(0,0,W,H,'F');
+
+  // ── CABECERA ──────────────────────────────────
+  // FACTURA (izquierda) + Nº (derecha)
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(26);
+  doc.setTextColor(20,20,20);
+  doc.text('FACTURA', ML, 14);
+
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(10);
+  doc.setTextColor(120,120,120);
+  doc.text(`Nº ${numFact}`, W-MR, 14, {align:'right'});
+
+  // Línea separatoria
+  doc.setFillColor(30,30,30);
+  doc.rect(ML, 18, CW, 0.5, 'F');
+
+  // Mis datos completos debajo de la línea
+  let y = 26;
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(10);
+  doc.setTextColor(20,20,20);
+  doc.text(ME.nombre, ML, y);
+
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(100,100,100);
+  y += 5; doc.text(`NIF: ${ME.nif}`, ML, y);
+  y += 4.5; doc.text(ME.direccion, ML, y);
+  if (ME.telefono) { y += 4.5; doc.text(`Tel: ${ME.telefono}`, ML, y); }
+  if (ME.email)    { y += 4.5; doc.text(ME.email, ML, y); }
+
+  // ── FECHAS (derecha, alineadas con mis datos) ─
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(140,140,140);
+  doc.text('FECHA DE EMISIÓN',    W-MR-60, 26);
+  doc.text('FECHA DE VENCIMIENTO', W-MR,   26, {align:'right'});
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(9);
+  doc.setTextColor(20,20,20);
+  doc.text(fmtDate(fecha), W-MR-60, 31);
+  doc.text(fmtDate(venc),  W-MR,    31, {align:'right'});
+
+  // ── SEPARADOR tras mis datos ───────────────────
+  y += 8;
+  doc.setDrawColor(210,210,210);
+  doc.setLineWidth(0.4);
+  doc.line(ML, y, W-MR, y);
+
+  // ── DATOS CLIENTE ─────────────────────────────
+  y += 8;
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(140,140,140);
+  doc.text('FACTURADO A', ML, y);
+
+  y += 6;
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(11);
+  doc.setTextColor(20,20,20);
+  doc.text(client.nombre, ML, y);
+
+  y += 5;
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(100,100,100);
+  doc.text(`NIF/CIF: ${client.nif}`, ML, y);
+  if (client.direccion) {
+    y += 4.5;
+    const dirLines = doc.splitTextToSize(client.direccion, 110);
+    doc.text(dirLines, ML, y);
+    y += (dirLines.length - 1) * 4;
+  }
+  if (client.email) { y += 4.5; doc.text(client.email, ML, y); }
+
+  // ── SEPARADOR ─────────────────────────────────
+  y += 8;
+  doc.setDrawColor(210,210,210);
+  doc.line(ML, y, W-MR, y);
+
+  // ── TABLA CONCEPTOS ───────────────────────────
+  y += 8;
+  doc.setFillColor(245,245,245);
+  doc.rect(ML, y-5, CW, 8, 'F');
+
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(80,80,80);
+  doc.text('CONCEPTO', ML, y);
+  doc.text('IMPORTE', W-MR, y, {align:'right'});
+
+  y += 8;
+  const conceptosValidos2 = conceptos.filter(c => c.desc.trim() || c.importe > 0);
+  conceptosValidos2.forEach((c, idx) => {
+    if (y > H - 80) { doc.addPage(); y = 20; }
+    const lines = doc.splitTextToSize(c.desc || '—', CW - 50);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(9);
+    doc.setTextColor(20,20,20);
+    doc.text(lines, ML, y);
+    doc.setFont('helvetica', conceptosValidos2.length > 1 ? 'normal' : 'bold');
+    doc.text(fmt(c.importe||0), W-MR, y, {align:'right'});
+    y += Math.max(lines.length * 5, 6);
+    if (idx < conceptosValidos2.length - 1) {
+      doc.setDrawColor(230,230,230);
+      doc.setLineWidth(0.3);
+      doc.line(ML, y+1, W-MR, y+1);
+      y += 6;
+    }
+  });
+
+  y += 4;
+  doc.setDrawColor(210,210,210);
+  doc.setLineWidth(0.4);
+  doc.line(ML, y, W-MR, y);
+
+  // ── TOTALES ───────────────────────────────────
+  y += 10;
+  const tLabelX = W - MR - 60;
+  const tValX   = W - MR;
+  const ROW = 7;
+
+  const drawRow = (label, value, bold=false, color=[60,60,60]) => {
+    doc.setFont('helvetica', bold ? 'bold' : 'normal');
+    doc.setFontSize(bold ? 10 : 9);
+    doc.setTextColor(...color);
+    doc.text(label, tLabelX, y);
+    doc.text(value, tValX, y, {align:'right'});
+    y += ROW;
+  };
+
+  drawRow('Base imponible',              fmt(b));
+  drawRow(`IVA (${ivaPct}%)`,            `+ ${fmt(iva)}`);
+  drawRow(`Retención IRPF (${irpfPct}%)`, irpfPct > 0 ? `- ${fmt(irpf)}` : '—');
+
+  y += 2;
+  doc.setDrawColor(20,20,20);
+  doc.setLineWidth(0.6);
+  doc.line(tLabelX, y, tValX, y);
+  y += 5;
+
+  drawRow('TOTAL A COBRAR', fmt(total), true, [20,20,20]);
+
+  // ── DATOS DE PAGO ─────────────────────────────
+  y += 12;
+  doc.setDrawColor(210,210,210);
+  doc.setLineWidth(0.4);
+  doc.line(ML, y, W-MR, y);
+
+  y += 8;
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(140,140,140);
+  doc.text('DATOS DE PAGO', ML, y);
+
+  y += 6;
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(60,60,60);
+  if (ME.iban) {
+    doc.text(`Banco: ${ME.banco}`, ML, y);
+    doc.text(`IBAN: ${ME.iban}`, ML, y+5);
+    doc.text(`Beneficiario: ${ME.nombre}`, ML, y+10);
+  } else {
+    doc.text('Los datos bancarios serán facilitados por separado.', ML, y);
+  }
+
+  // ── LÍNEA FINAL ───────────────────────────────
+  doc.setDrawColor(20,20,20);
+  doc.setLineWidth(0.5);
+  doc.line(ML, H-18, W-MR, H-18);
+
+  // Guardar
+  const tipo = document.getElementById('fTipo').value;
+  const nombreArchivo = document.getElementById('fNombreArchivo').value.trim()
+    .toUpperCase().replace(/\s+/g, '-').replace(/[^A-Z0-9\-]/g, '') || 'SIN-CONCEPTO';
+  const clienteSlug = client.nombre.replace(/\s+/g,'-').replace(/[^A-Z0-9\-]/g,'');
+  const fechaSlug = fecha ? fecha.replace(/-/g,'') : new Date().toISOString().slice(0,10).replace(/-/g,'');
+  const numPad = String(invoiceCounter).padStart(3,'0');
+  const filename = `${fechaSlug}_${numPad}_${tipo}_${clienteSlug}_${nombreArchivo}.pdf`;
+  doc.save(filename);
+
+  // Historial
+  history.unshift({ num: numFact, cliente: client.nombre, concepto, total, fecha, tipo, prueba: false });
+  localStorage.setItem('invoiceHistory_AMP', JSON.stringify(history));
+  invoiceCounter++;
+  saveCounter();
+  updateInvoiceNum();
+  renderHistory();
+  showToast(`✓ Factura ${numFact} descargada`);
+  // Reset formulario para siguiente factura
+  initConceptos();
+  calcTotals();
+}
+
+function previewInvoice() {
+  showToast('💡 Rellena el formulario y pulsa Descargar PDF');
+}
+
+// ═══════════════════════════════════
+// HISTORIAL — funciones auxiliares
+// ═══════════════════════════════════
+function deleteHistoryItem(i) {
+  if (!confirm('¿Eliminar esta factura del historial?')) return;
+  history.splice(i, 1);
+  selectedIds.delete(i);
+  localStorage.setItem('invoiceHistory_AMP', JSON.stringify(history));
+  renderHistory();
+  showToast('✓ Factura eliminada del historial');
+}
+
+function clearAllHistory() {
+  if (!confirm('¿Borrar todo el historial? Esta acción no se puede deshacer.')) return;
+  history = [];
+  selectedIds.clear();
+  localStorage.removeItem('invoiceHistory_AMP');
+  renderHistory();
+  showToast('✓ Historial borrado');
+}
+
+// ═══════════════════════════════════
+// MODAL NUEVO / EDITAR CLIENTE
+// ═══════════════════════════════════
+let editingClientIdx = null;
+
+function openNewClientModal() {
+  editingClientIdx = null;
+  document.getElementById('modalTitle').textContent = '+ Nuevo cliente';
+  document.getElementById('modalSaveBtn').textContent = 'Guardar cliente';
+  ['mNombre','mNif','mEmail','mDireccion'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('mTipo').value = 'SOCIEDAD';
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function openEditClientModal(idx, e) {
+  e.stopPropagation();
+  editingClientIdx = idx;
+  const c = clients[idx];
+  document.getElementById('modalTitle').textContent = '✏ Editar cliente';
+  document.getElementById('modalSaveBtn').textContent = 'Guardar cambios';
+  document.getElementById('mNombre').value = c.nombre;
+  document.getElementById('mNif').value = c.nif;
+  document.getElementById('mTipo').value = c.tipo;
+  document.getElementById('mDireccion').value = c.direccion || '';
+  document.getElementById('mEmail').value = c.email || '';
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+
+function saveNewClient() {
+  const nombre = document.getElementById('mNombre').value.trim();
+  const nif = document.getElementById('mNif').value.trim();
+  if (!nombre || !nif) { showToast('⚠ Nombre y NIF son obligatorios'); return; }
+
+  const data = {
+    nombre: nombre.toUpperCase(),
+    nif: nif.toUpperCase(),
+    tipo: document.getElementById('mTipo').value,
+    email: document.getElementById('mEmail').value,
+    direccion: document.getElementById('mDireccion').value,
+  };
+
+  if (editingClientIdx !== null) {
+    clients[editingClientIdx] = data;
+    showToast('✓ Cliente actualizado');
+  } else {
+    clients.push(data);
+    showToast('✓ Cliente añadido');
+  }
+
+  saveClients();
+  closeModal();
+  renderClientGrids();
+}
+
+// ═══════════════════════════════════
+// TOAST
+// ═══════════════════════════════════
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+document.getElementById('detalleModalOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('detalleModalOverlay'))
+    document.getElementById('detalleModalOverlay').classList.remove('open');
+});
+
+// Cerrar modal al click fuera
+document.getElementById('modalOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('modalOverlay')) closeModal();
+});
+
+document.getElementById('resetModalOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('resetModalOverlay'))
+    document.getElementById('resetModalOverlay').classList.remove('open');
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  ['resetYear','resetNum'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', updateResetPreview);
+  });
+});
+
+// ═══════════════════════════════════
+// BULK SELECTION
+// ═══════════════════════════════════
+let selectedIds = new Set(); // índices en history[]
+let currentFiltrado = []; // facturas visibles actualmente
+
+function updateBulkBar() {
+  const bar = document.getElementById('bulkBar');
+  const info = document.getElementById('bulkInfo');
+  if (!selectedIds.size) {
+    bar.style.display = 'none';
+    return;
+  }
+  const sel = [...selectedIds].map(i => history[i]).filter(Boolean);
+  const total = sel.reduce((s,h) => s+(h.total||0), 0);
+  const fmt = n => n.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2});
+  info.textContent = `${selectedIds.size} seleccionada${selectedIds.size>1?'s':''} · ${fmt(total)} €`;
+  bar.style.display = 'flex';
+}
+
+function toggleSelect(idx, checked) {
+  if (checked) selectedIds.add(idx);
+  else selectedIds.delete(idx);
+  // Actualizar checkbox "seleccionar todo"
+  const allCb = document.getElementById('hSelectAll');
+  if (allCb) allCb.checked = currentFiltrado.length > 0 &&
+    currentFiltrado.every(h => selectedIds.has(history.indexOf(h)));
+  updateBulkBar();
+}
+
+function toggleSelectAll(checked) {
+  currentFiltrado.forEach(h => {
+    const i = history.indexOf(h);
+    if (checked) selectedIds.add(i);
+    else selectedIds.delete(i);
+  });
+  // Re-renderizar checkboxes
+  document.querySelectorAll('.h-checkbox').forEach(cb => { cb.checked = checked; });
+  updateBulkBar();
+}
+
+function selectPendientes() {
+  currentFiltrado.forEach(h => {
+    if (!h.cobrada) selectedIds.add(history.indexOf(h));
+  });
+  document.querySelectorAll('.h-checkbox').forEach(cb => {
+    const i = parseInt(cb.dataset.idx);
+    cb.checked = selectedIds.has(i);
+  });
+  updateBulkBar();
+}
+
+function selectCobradas() {
+  currentFiltrado.forEach(h => {
+    if (h.cobrada) selectedIds.add(history.indexOf(h));
+  });
+  document.querySelectorAll('.h-checkbox').forEach(cb => {
+    const i = parseInt(cb.dataset.idx);
+    cb.checked = selectedIds.has(i);
+  });
+  updateBulkBar();
+}
+
+function clearSelection() {
+  selectedIds.clear();
+  document.querySelectorAll('.h-checkbox').forEach(cb => cb.checked = false);
+  const allCb = document.getElementById('hSelectAll');
+  if (allCb) allCb.checked = false;
+  updateBulkBar();
+}
+
+function bulkAction(accion) {
+  if (!selectedIds.size) return;
+  const indices = [...selectedIds];
+  const count = indices.length;
+
+  if (accion === 'eliminar') {
+    if (!confirm(`¿Eliminar ${count} factura${count>1?'s':''} del historial? Esta acción no se puede deshacer.`)) return;
+    // Marcar para eliminar y filtrar — evita el problema de índices desplazados
+    const toDelete = new Set(indices);
+    history = history.filter((_, i) => !toDelete.has(i));
+  } else {
+    indices.forEach(i => {
+      if (!history[i]) return;
+      if (accion === 'cobrar')     history[i].cobrada = true;
+      if (accion === 'pendiente')  history[i].cobrada = false;
+      if (accion === 'prueba')     history[i].prueba  = true;
+      if (accion === 'restaurar')  history[i].prueba  = false;
+    });
+  }
+
+  localStorage.setItem('invoiceHistory_AMP', JSON.stringify(history));
+  selectedIds.clear();
+  renderHistory();
+  const labels = {cobrar:'marcadas como cobradas',pendiente:'marcadas como pendientes',prueba:'marcadas como prueba',restaurar:'restauradas',eliminar:'eliminadas'};
+  showToast(`✓ ${count} factura${count>1?'s':''} ${labels[accion]}`);
+}
+let hFiltros = { trimestre: 'todos', tipo: 'todos' };
+
+function setHFiltro(campo, valor, btn) {
+  hFiltros[campo] = valor;
+  if (btn) {
+    const grupo = btn.closest('div');
+    grupo.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+  renderHistory();
+}
+
+function resetHistorialFiltros() {
+  hFiltros = { trimestre: 'todos', tipo: 'todos' };
+  document.getElementById('hFiltroTexto').value = '';
+  document.getElementById('hFiltroCliente').value = '';
+  document.getElementById('hFiltroEstado').value = 'todos';
+  document.getElementById('hFiltroMin').value = '';
+  document.getElementById('hFiltroMax').value = '';
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('hBtnTodos').classList.add('active');
+  renderHistory();
+}
+
+function buildHistorialFiltros() {
+  // Tipos dinámicos
+  const tipos = [...new Set(history.map(h => h.tipo||'OTRO'))].sort();
+  const tiposEl = document.getElementById('hFiltroTipos');
+  if (tiposEl) {
+    tiposEl.innerHTML = `<span style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;align-self:center;margin-right:4px;">Tipo</span>
+      <button class="filter-btn ${hFiltros.tipo==='todos'?'active':''}" onclick="setHFiltro('tipo','todos',this)">Todos</button>
+      ${tipos.map(t=>`<button class="filter-btn ${hFiltros.tipo===t?'active':''}" onclick="setHFiltro('tipo','${t}',this)">${t}</button>`).join('')}`;
+  }
+  // Clientes dinámicos
+  const clientes = [...new Set(history.map(h => h.cliente).filter(Boolean))].sort();
+  const clienteEl = document.getElementById('hFiltroCliente');
+  if (clienteEl) {
+    const current = clienteEl.value;
+    clienteEl.innerHTML = `<option value="">Todos los clientes</option>
+      ${clientes.map(c=>`<option value="${c}" ${current===c?'selected':''}>${c}</option>`).join('')}`;
+  }
+}
+
+function renderHistory() {
+  buildHistorialFiltros();
+  const el = document.getElementById('historyList');
+  const texto   = (document.getElementById('hFiltroTexto')?.value||'').toLowerCase();
+  const cliente = document.getElementById('hFiltroCliente')?.value||'';
+  const estado  = document.getElementById('hFiltroEstado')?.value||'todos';
+  const min     = parseFloat(document.getElementById('hFiltroMin')?.value)||0;
+  const max     = parseFloat(document.getElementById('hFiltroMax')?.value)||Infinity;
+
+  let filtrado = history.filter(h => {
+    if (hFiltros.trimestre !== 'todos' && getQuarter(h.fecha) !== hFiltros.trimestre) return false;
+    if (hFiltros.tipo !== 'todos' && (h.tipo||'OTRO') !== hFiltros.tipo) return false;
+    if (texto && !`${h.num} ${h.cliente} ${h.concepto}`.toLowerCase().includes(texto)) return false;
+    if (cliente && h.cliente !== cliente) return false;
+    if (estado === 'validas' && h.prueba) return false;
+    if (estado === 'pruebas' && !h.prueba) return false;
+    if (estado === 'cobradas' && !h.cobrada) return false;
+    if (estado === 'pendientes' && h.cobrada) return false;
+    if (h.total < min || h.total > max) return false;
+    return true;
+  });
+
+  currentFiltrado = filtrado;
+
+  // Limpiar selección que ya no es visible
+  selectedIds.forEach(i => { if (!filtrado.find(h => history.indexOf(h) === i)) selectedIds.delete(i); });
+
+  // Contador
+  const cEl = document.getElementById('hContador');
+  if (cEl) {
+    const total = filtrado.reduce((s,h)=>s+(h.total||0),0);
+    const cobrado = filtrado.filter(h=>h.cobrada).reduce((s,h)=>s+(h.total||0),0);
+    const fmt = n => n.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2});
+    cEl.innerHTML = filtrado.length
+      ? `<span style="color:var(--accent);font-weight:700;">${filtrado.length}</span> factura${filtrado.length>1?'s':''} · <span style="color:var(--accent);">${fmt(total)} €</span> · Cobrado: <span style="color:#4dff91;">${fmt(cobrado)} €</span>`
+      : '';
+  }
+
+  // Actualizar checkbox de seleccionar todo
+  const allCb = document.getElementById('hSelectAll');
+  if (allCb) allCb.checked = filtrado.length > 0 && filtrado.every(h => selectedIds.has(history.indexOf(h)));
+
+  if (!filtrado.length) {
+    el.innerHTML = '<p style="color:var(--muted); font-size:13px; padding:20px 0;">No hay facturas con los filtros seleccionados.</p>';
+    updateBulkBar(); renderResumen(); return;
+  }
+
+  el.innerHTML = filtrado.map(h => {
+    const i = history.indexOf(h);
+    const checked = selectedIds.has(i);
+    return `
+    <div class="history-item" style="${h.prueba ? 'opacity:0.45;' : ''}${checked ? 'border-color:var(--accent);background:rgba(200,245,66,0.04);' : ''}">
+      <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">
+        <input type="checkbox" class="h-checkbox" data-idx="${i}" ${checked?'checked':''} onchange="toggleSelect(${i},this.checked)"
+          style="accent-color:var(--accent);width:15px;height:15px;cursor:pointer;flex-shrink:0;">
+        <span class="history-num">${h.num}</span>
+        <div style="flex:1;min-width:0;">
+          <div class="history-client" style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;">
+            ${h.cliente}
+            ${h.tipo ? `<span style="font-size:10px;color:var(--accent);background:rgba(200,245,66,0.1);padding:1px 7px;border-radius:4px;">${h.tipo}</span>` : ''}
+            ${h.prueba ? `<span style="font-size:10px;color:#ff4d4d;background:rgba(255,77,77,0.1);padding:1px 7px;border-radius:4px;">PRUEBA</span>` : ''}
+            ${h.cobrada ? `<span style="font-size:10px;color:#4dff91;background:rgba(77,255,145,0.1);padding:1px 7px;border-radius:4px;">✓ COBRADA</span>` : `<span style="font-size:10px;color:var(--accent2);background:rgba(245,166,35,0.1);padding:1px 7px;border-radius:4px;">⏳ PENDIENTE</span>`}
+          </div>
+          <div class="history-concept">${h.concepto}</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+        <div style="text-align:right;">
+          <div class="history-amount">${(h.total||0).toLocaleString('es-ES',{minimumFractionDigits:2})} €</div>
+          <div class="history-date">${h.fecha ? h.fecha.split('-').reverse().join('/') : ''}</div>
+        </div>
+        <button onclick="toggleCobrada(${i})" title="${h.cobrada?'Marcar pendiente':'Marcar cobrada'}"
+          style="background:transparent;border:1px solid ${h.cobrada?'#4dff91':'var(--border)'};color:${h.cobrada?'#4dff91':'var(--muted)'};padding:4px 7px;border-radius:5px;cursor:pointer;font-size:11px;white-space:nowrap;">
+          ${h.cobrada ? '✓' : '€'}
+        </button>
+        <button onclick="togglePrueba(${i})"
+          style="background:transparent;border:1px solid ${h.prueba?'#ff4d4d':'var(--border)'};color:${h.prueba?'#ff4d4d':'var(--muted)'};padding:4px 7px;border-radius:5px;cursor:pointer;font-size:11px;">
+          ${h.prueba ? '↩' : '🧪'}
+        </button>
+        <button onclick="deleteHistoryItem(${i})"
+          style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 8px;border-radius:5px;cursor:pointer;font-size:12px;"
+          onmouseover="this.style.borderColor='#ff4d4d';this.style.color='#ff4d4d'"
+          onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  updateBulkBar();
+  renderResumen();
+}
+
+function toggleCobrada(i) {
+  history[i].cobrada = !history[i].cobrada;
+  localStorage.setItem('invoiceHistory_AMP', JSON.stringify(history));
+  renderHistory();
+}
+
+function togglePrueba(i) {
+  history[i].prueba = !history[i].prueba;
+  localStorage.setItem('invoiceHistory_AMP', JSON.stringify(history));
+  renderHistory();
+}
+
+// ═══════════════════════════════════
+// MODAL DETALLE POR TIPO / EXCLUIDAS
+// ═══════════════════════════════════
+function abrirDetalleTipo(tipo) {
+  const fmt = n => n.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €';
+  // Aplicar filtro de año/Q del resumen
+  let items = history.filter(h => !h.prueba && (h.tipo||'OTRO') === tipo);
+  if (resumenYear !== 'todos') items = items.filter(h => h.fecha && h.fecha.startsWith(resumenYear));
+  if (resumenQ !== 'todos') items = items.filter(h => getQuarter(h.fecha) === resumenQ);
+
+  const total = items.reduce((s,h)=>s+(h.total||0),0);
+  const media = items.length ? total/items.length : 0;
+  const cobrado = items.filter(h=>h.cobrada).reduce((s,h)=>s+(h.total||0),0);
+
+  document.getElementById('detalleModalTitle').textContent = `${tipo} — Detalle de facturas`;
+  document.getElementById('detalleRestaurarTodo').style.display = 'none';
+  document.getElementById('detalleModalResumen').innerHTML = `
+    <div style="background:var(--surface2);border-radius:8px;padding:14px;text-align:center;">
+      <p style="font-size:10px;color:var(--muted);margin-bottom:4px;">TOTAL</p>
+      <p style="font-size:18px;font-family:'Syne',sans-serif;font-weight:800;color:var(--accent);">${fmt(total)}</p>
+    </div>
+    <div style="background:var(--surface2);border-radius:8px;padding:14px;text-align:center;">
+      <p style="font-size:10px;color:var(--muted);margin-bottom:4px;">MEDIA / FACTURA</p>
+      <p style="font-size:18px;font-family:'Syne',sans-serif;font-weight:800;color:var(--text);">${fmt(media)}</p>
+    </div>
+    <div style="background:var(--surface2);border-radius:8px;padding:14px;text-align:center;">
+      <p style="font-size:10px;color:var(--muted);margin-bottom:4px;">COBRADO</p>
+      <p style="font-size:18px;font-family:'Syne',sans-serif;font-weight:800;color:#4dff91;">${fmt(cobrado)}</p>
+    </div>
+  `;
+  document.getElementById('detalleModalLista').innerHTML = items.map(h => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:12px;">
+      <div>
+        <span style="color:var(--accent);margin-right:12px;">${h.num}</span>
+        <span style="color:var(--text);">${h.cliente}</span>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">${h.concepto}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-weight:700;">${fmt(h.total||0)}</div>
+        <div style="font-size:10px;color:var(--muted);">${h.fecha?h.fecha.split('-').reverse().join('/'):'—'}</div>
+        ${h.cobrada?`<div style="font-size:10px;color:#4dff91;">✓ Cobrada</div>`:`<div style="font-size:10px;color:var(--accent2);">Pendiente</div>`}
+      </div>
+    </div>
+  `).join('') || '<p style="color:var(--muted);font-size:12px;padding:16px 0;">Sin facturas en este período.</p>';
+
+  document.getElementById('detalleModalOverlay').classList.add('open');
+}
+
+function abrirDetalleExcluidas() {
+  const fmt = n => n.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €';
+  const items = history.filter(h => h.prueba);
+  const total = items.reduce((s,h)=>s+(h.total||0),0);
+
+  document.getElementById('detalleModalTitle').textContent = `Facturas excluidas (${items.length})`;
+  document.getElementById('detalleRestaurarTodo').style.display = items.length ? 'block' : 'none';
+  document.getElementById('detalleModalResumen').innerHTML = `
+    <div style="background:var(--surface2);border-radius:8px;padding:14px;text-align:center;">
+      <p style="font-size:10px;color:var(--muted);margin-bottom:4px;">EXCLUIDAS</p>
+      <p style="font-size:18px;font-family:'Syne',sans-serif;font-weight:800;color:#ff4d4d;">${items.length}</p>
+    </div>
+    <div style="background:var(--surface2);border-radius:8px;padding:14px;text-align:center;">
+      <p style="font-size:10px;color:var(--muted);margin-bottom:4px;">IMPORTE EXCLUIDO</p>
+      <p style="font-size:18px;font-family:'Syne',sans-serif;font-weight:800;color:#ff4d4d;">${fmt(total)}</p>
+    </div>
+    <div style="background:var(--surface2);border-radius:8px;padding:14px;text-align:center;">
+      <p style="font-size:10px;color:var(--muted);margin-bottom:4px;">NO COMPUTAN EN</p>
+      <p style="font-size:13px;font-family:'Syne',sans-serif;font-weight:700;color:var(--muted);">Resumen</p>
+    </div>
+  `;
+  document.getElementById('detalleModalLista').innerHTML = items.map((h,i) => {
+    const idx = history.indexOf(h);
+    return `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:12px;">
+      <div>
+        <span style="color:var(--accent);margin-right:12px;">${h.num}</span>
+        <span style="color:var(--text);">${h.cliente}</span>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">${h.concepto}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-weight:700;">${fmt(h.total||0)}</span>
+        <button onclick="togglePrueba(${idx});abrirDetalleExcluidas()"
+          style="background:transparent;border:1px solid var(--accent);color:var(--accent);padding:3px 10px;border-radius:5px;cursor:pointer;font-size:11px;">
+          ↩ Restaurar
+        </button>
+      </div>
+    </div>`;
+  }).join('') || '<p style="color:var(--muted);font-size:12px;padding:16px 0;">No hay facturas excluidas.</p>';
+
+  document.getElementById('detalleModalOverlay').classList.add('open');
+}
+
+function restaurarTodas() {
+  history.forEach(h => { if (h.prueba) h.prueba = false; });
+  localStorage.setItem('invoiceHistory_AMP', JSON.stringify(history));
+  document.getElementById('detalleModalOverlay').classList.remove('open');
+  renderHistory();
+  showToast('✓ Todas las facturas restauradas');
+}
+
+function getQuarter(fecha) {
+  if (!fecha) return null;
+  const m = parseInt((fecha.split('-')[1] || '0'));
+  if (m >= 1 && m <= 3) return 'Q1';
+  if (m >= 4 && m <= 6) return 'Q2';
+  if (m >= 7 && m <= 9) return 'Q3';
+  if (m >= 10 && m <= 12) return 'Q4';
+  return null;
+}
+
+let resumenYear = 'todos';
+let resumenQ = 'todos';
+
+function setResumenYear(y) {
+  resumenYear = y;
+  resumenQ = 'todos';
+  renderResumen();
+}
+
+function setResumenQ(q) {
+  resumenQ = q;
+  renderResumen();
+}
+
+function renderResumen() {
+  const el = document.getElementById('resumenContent');
+  if (!el) return;
+
+  const todasValidas = history.filter(h => !h.prueba);
+  const años = [...new Set(todasValidas.map(h => h.fecha ? h.fecha.split('-')[0] : null).filter(Boolean))].sort().reverse();
+
+  let filtradas = todasValidas;
+  if (resumenYear !== 'todos') filtradas = filtradas.filter(h => h.fecha && h.fecha.startsWith(resumenYear));
+  if (resumenQ !== 'todos') filtradas = filtradas.filter(h => getQuarter(h.fecha) === resumenQ);
+
+  const fmt = n => n.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €';
+  const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+  const añosHtml = `
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+      <button class="filter-btn ${resumenYear==='todos'?'active':''}" onclick="setResumenYear('todos')">Todos los años</button>
+      ${años.map(y=>`<button class="filter-btn ${resumenYear===y?'active':''}" onclick="setResumenYear('${y}')">${y}</button>`).join('')}
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <button class="filter-btn ${resumenQ==='todos'?'active':''}" onclick="setResumenQ('todos')" ${resumenYear==='todos'?'disabled style="opacity:0.3;cursor:not-allowed"':''}>Todos los trimestres</button>
+      ${['Q1','Q2','Q3','Q4'].map(q=>`<button class="filter-btn ${resumenQ===q?'active':''}" onclick="setResumenQ('${q}')" ${resumenYear==='todos'?'disabled style="opacity:0.3;cursor:not-allowed"':''}>${q}</button>`).join('')}
+    </div>
+  `;
+
+  if (!filtradas.length) {
+    el.innerHTML = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin-bottom:24px;">${añosHtml}</div><p style="color:var(--muted);font-size:13px;">No hay facturas para el período seleccionado.</p>`;
+    return;
+  }
+
+  const total = filtradas.reduce((s,h) => s + (h.total||0), 0);
+  const porTipo = {};
+  filtradas.forEach(h => { const t=h.tipo||'OTRO'; porTipo[t]=(porTipo[t]||0)+(h.total||0); });
+  const porMes = {};
+  filtradas.forEach(h => {
+    if (!h.fecha) return;
+    const [y,m] = h.fecha.split('-');
+    const key = `${y}-${m}`;
+    porMes[key] = (porMes[key]||0) + (h.total||0);
+  });
+
+  const cobradoTotal = filtradas.filter(h=>h.cobrada).reduce((s,h)=>s+(h.total||0),0);
+  const pendienteTotal = total - cobradoTotal;
+
+  const tiposHtml = Object.entries(porTipo).sort((a,b)=>b[1]-a[1]).map(([t,v]) => {
+    const count = filtradas.filter(h=>(h.tipo||'OTRO')===t).length;
+    const pct = Math.round((v/total)*100);
+    return `<div style="padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;" onclick="abrirDetalleTipo('${t}')" title="Ver facturas de ${t}">
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+        <span><span style="color:var(--accent);font-weight:700;margin-right:8px;font-size:12px;">${t}</span><span style="font-size:11px;color:var(--muted);">${count} factura${count>1?'s':''}</span></span>
+        <span style="display:flex;align-items:center;gap:8px;"><span style="font-size:13px;font-family:'Syne',sans-serif;font-weight:700;">${fmt(v)}</span><span style="font-size:10px;color:var(--muted);">›</span></span>
+      </div>
+      <div style="height:3px;background:var(--border);border-radius:2px;"><div style="height:3px;width:${pct}%;background:var(--accent);border-radius:2px;"></div></div>
+    </div>`;
+  }).join('');
+
+  const mesHtml = Object.entries(porMes).sort().map(([k,v]) => {
+    const [y,m] = k.split('-');
+    const pct = Math.round((v/total)*100);
+    return `<div style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+        <span style="font-size:11px;color:var(--muted);">${meses[(parseInt(m)||1)-1]} ${y}</span>
+        <span style="font-size:11px;color:var(--text);">${fmt(v)}</span>
+      </div>
+      <div style="height:3px;background:var(--border);border-radius:2px;"><div style="height:3px;width:${pct}%;background:var(--accent);border-radius:2px;"></div></div>
+    </div>`;
+  }).join('');
+
+  const limitEl = document.getElementById('resumenLimit');
+  const limit = limitEl ? parseInt(limitEl.value)||5 : 5;
+  const labelPeriodo = resumenYear==='todos' ? 'Total histórico' : resumenQ==='todos' ? `Total ${resumenYear}` : `${resumenYear} · ${resumenQ}`;
+  const excluidas = history.filter(h=>h.prueba).length;
+
+  el.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin-bottom:24px;">${añosHtml}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px;">
+      <div style="background:var(--surface);border:1px solid var(--accent);border-radius:10px;padding:18px 20px;">
+        <p style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">${labelPeriodo}</p>
+        <p style="font-size:22px;font-family:'Syne',sans-serif;font-weight:800;color:var(--accent);">${fmt(total)}</p>
+        <p style="font-size:11px;color:var(--muted);margin-top:4px;">${filtradas.length} factura${filtradas.length>1?'s':''}</p>
+      </div>
+      <div style="background:var(--surface);border:1px solid #4dff91;border-radius:10px;padding:18px 20px;">
+        <p style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Cobrado</p>
+        <p style="font-size:22px;font-family:'Syne',sans-serif;font-weight:800;color:#4dff91;">${fmt(cobradoTotal)}</p>
+        <p style="font-size:11px;color:var(--muted);margin-top:4px;">${filtradas.filter(h=>h.cobrada).length} factura${filtradas.filter(h=>h.cobrada).length!==1?'s':''}</p>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--accent2);border-radius:10px;padding:18px 20px;">
+        <p style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Pendiente</p>
+        <p style="font-size:22px;font-family:'Syne',sans-serif;font-weight:800;color:var(--accent2);">${fmt(pendienteTotal)}</p>
+        <p style="font-size:11px;color:var(--muted);margin-top:4px;">${filtradas.filter(h=>!h.cobrada).length} factura${filtradas.filter(h=>!h.cobrada).length!==1?'s':''}</p>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 20px;">
+        <p style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">IVA est. 21%</p>
+        <p style="font-size:22px;font-family:'Syne',sans-serif;font-weight:800;color:var(--accent2);">${fmt(total*0.21)}</p>
+        <p style="font-size:11px;color:var(--muted);margin-top:4px;">Sobre base facturada</p>
+      </div>
+      <div style="background:var(--surface);border:1px solid #ff4d4d;border-radius:10px;padding:18px 20px;cursor:pointer;" onclick="abrirDetalleExcluidas()" title="Ver facturas excluidas">
+        <p style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Excluidas ›</p>
+        <p style="font-size:22px;font-family:'Syne',sans-serif;font-weight:800;color:#ff4d4d;">${excluidas}</p>
+        <p style="font-size:11px;color:var(--muted);margin-top:4px;">Marcadas como prueba</p>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 22px;">
+        <p style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">Por tipo de servicio</p>
+        <p style="font-size:10px;color:var(--muted);margin-bottom:14px;">Haz clic para ver detalle</p>
+        ${tiposHtml||'<p style="color:var(--muted);font-size:12px;">Sin datos</p>'}
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 22px;">
+        <p style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:16px;">Por mes</p>
+        ${mesHtml||'<p style="color:var(--muted);font-size:12px;">Sin datos de fecha</p>'}
+      </div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 22px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <p style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);">Facturas del período</p>
+        <select id="resumenLimit" onchange="renderResumen()" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:4px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;cursor:pointer;">
+          <option value="5" ${limit===5?'selected':''}>Últimas 5</option>
+          <option value="10" ${limit===10?'selected':''}>Últimas 10</option>
+          <option value="20" ${limit===20?'selected':''}>Últimas 20</option>
+          <option value="50" ${limit===50?'selected':''}>Últimas 50</option>
+          <option value="9999" ${limit===9999?'selected':''}>Todas</option>
+        </select>
+      </div>
+      ${filtradas.slice(0,limit).map(h=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;">
+          <span style="color:var(--accent);min-width:80px;">${h.num}</span>
+          <span style="color:var(--text);flex:1;padding:0 12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${h.cliente}</span>
+          <span style="color:var(--muted);min-width:55px;">${h.tipo||''}</span>
+          <span style="color:var(--muted);min-width:75px;text-align:right;font-size:11px;">${h.fecha?h.fecha.split('-').reverse().join('/'):'—'}</span>
+          ${h.cobrada?`<span style="color:#4dff91;font-size:10px;min-width:20px;text-align:center;">✓</span>`:`<span style="color:var(--accent2);font-size:10px;min-width:20px;text-align:center;">⏳</span>`}
+          <span style="color:var(--text);font-weight:700;min-width:90px;text-align:right;">${fmt(h.total)}</span>
+        </div>
+      `).join('')}
+      ${filtradas.length>limit?`<p style="font-size:11px;color:var(--muted);margin-top:10px;text-align:center;">Mostrando ${limit} de ${filtradas.length} facturas</p>`:''}
+    </div>
+  `;
+}
+let bsFacturas = [];
+let bsStaged = [];
+const TC_USD_EUR = 0.93;
+
+function handleCSVDrop(e) {
+  e.preventDefault();
+  document.getElementById('bsDropZone').classList.remove('drag-over');
+  const file = Array.from(e.dataTransfer.files).find(f => f.name.endsWith('.csv'));
+  if (!file) { showToast('⚠ Solo se acepta el CSV de BeatStars'); return; }
+  handleCSVFile(file);
+}
+
+function handleCSVFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const text = e.target.result;
+    const ventas = parseCSV(text);
+    if (!ventas.length) { showToast('⚠ No se encontraron ventas en el CSV'); return; }
+    bsStaged = ventas;
+
+    // Mostrar confirmación
+    const bar = document.getElementById('bsConfirmBar');
+    document.getElementById('bsConfirmMsg').textContent =
+      `${ventas.length} venta${ventas.length > 1 ? 's' : ''} encontrada${ventas.length > 1 ? 's' : ''} en el CSV`;
+    document.getElementById('bsConfirmList').innerHTML =
+      ventas.map(v => `<span style="color:var(--accent)">${v.cliente}</span> · ${v.beat.substring(0,40)} · <span style="color:var(--accent2)">$${v.miParte.toFixed(2)}</span>`).join('<br>');
+    bar.style.display = 'flex';
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function parseCSV(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+  const ventas = [];
+  let currentVenta = null;
+
+  // Parsear línea CSV respetando comillas
+  function parseLine(line) {
+    const result = [];
+    let inQuote = false, cur = '';
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') { inQuote = !inQuote; }
+      else if (c === ',' && !inQuote) { result.push(cur.trim()); cur = ''; }
+      else { cur += c; }
+    }
+    result.push(cur.trim());
+    return result;
+  }
+
+  // Buscar línea de cabecera
+  let headerIdx = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].toLowerCase().includes('invoice number') && lines[i].toLowerCase().includes('customer name')) {
+      headerIdx = i; break;
+    }
+  }
+  if (headerIdx === -1) return [];
+
+  const headers = parseLine(lines[headerIdx]).map(h => h.toLowerCase().trim());
+  const col = name => headers.findIndex(h => h.includes(name));
+
+  const iInvoice  = col('invoice number');
+  const iDate     = col('date');
+  const iCustomer = col('customer name');
+  const iItem     = col('item name');
+  const iSalePrice = col('sale price');
+  const iSplitId  = col('split payment id');
+  const iSplitType = col('split payment type');
+  const iSplitAmt  = col('split payment amount');
+
+  const months = {january:1,february:2,march:3,april:4,may:5,june:6,
+    july:7,august:8,september:9,october:10,november:11,december:12};
+
+  function parseDate(str) {
+    // "May 28, 2026 Thursday, 7:52:53 AM EDT"
+    const m = str.match(/(\w+)\s+(\d{1,2}),\s+(\d{4})/);
+    if (!m) return '';
+    const dd = String(parseInt(m[2])).padStart(2,'0');
+    const mm = String(months[m[1].toLowerCase()] || 1).padStart(2,'0');
+    return `${dd}/${mm}/${m[3]}`;
+  }
+
+  function cleanBeat(name) {
+    // Quitar "(COLLABORATOR)" del nombre del beat
+    return name.replace(/\s*\(COLLABORATOR\)\s*/gi,'').trim();
+  }
+
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    const cols = parseLine(lines[i]);
+    if (!cols[iInvoice] && !currentVenta) continue;
+
+    if (cols[iInvoice]) {
+      // Nueva venta principal
+      currentVenta = {
+        invoice:  cols[iInvoice],
+        fecha:    parseDate(cols[iDate] || ''),
+        cliente:  cols[iCustomer] || 'CLIENTE INTERNACIONAL',
+        beat:     cleanBeat(cols[iItem] || 'LICENCIAS BEATSTARS'),
+        salePrice: parseFloat(cols[iSalePrice]) || 0,
+        miParte:  0,
+        splits:   []
+      };
+      ventas.push(currentVenta);
+    }
+
+    // Leer split de esta línea (puede ser la línea principal u otras de split)
+    if (currentVenta && cols[iSplitId] !== undefined) {
+      const splitId   = cols[iSplitId] || '';
+      const splitType = (cols[iSplitType] || '').toUpperCase();
+      const splitAmt  = parseFloat(cols[iSplitAmt]) || 0;
+      currentVenta.splits.push({ id: splitId, type: splitType, amt: splitAmt });
+
+      // Si es PRIMARY y el id es Polanskyybeatz, esa es tu parte
+      if (splitType === 'PRIMARY') {
+        currentVenta.miParte = splitAmt;
+      }
+    }
+  }
+
+  // Filtrar ventas sin parte (no debería pasar) y calcular EUR
+  return ventas.filter(v => v.miParte > 0 || v.salePrice > 0).map(v => {
+    if (v.miParte === 0) v.miParte = v.salePrice; // fallback si no hay split
+    v.miParteEUR = Math.round(v.miParte * TC_USD_EUR_user * 100) / 100;
+    return v;
+  });
+}
+
+function cancelBSStage() {
+  bsStaged = [];
+  document.getElementById('bsConfirmBar').style.display = 'none';
+  document.getElementById('bsFileInput').value = '';
+}
+
+function importBSStaged() {
+  if (!bsStaged.length) return;
+  document.getElementById('bsConfirmBar').style.display = 'none';
+  bsFacturas = bsStaged.map(v => ({
+    fecha: v.fecha,
+    invoice: v.invoice,
+    beat: v.beat,
+    cliente: v.cliente,
+    totalUSD: v.miParte,
+    totalEUR: v.miParteEUR,
+    beneficio: v.miParteEUR,
+    nombreNuevo: '',
+    fechaCobro: '', nFactura: '', numFactura: 0, cobrado: '',
+    estado: 'CLIENTE INTERNACIONAL'
+  }));
+  reassignBSNumbers();
+  renderBSTable();
+  document.getElementById('bsExportBtns').style.display = 'flex';
+  showToast(`✓ ${bsFacturas.length} ventas importadas`);
+}
+
+function reassignBSNumbers() {
+  bsFacturas.sort((a,b) => {
+    const n = s => { if(!s) return 0; const [d,m,y]=s.split('/'); return parseInt(y+m+d)||0; };
+    return n(a.fecha) - n(b.fecha);
+  });
+  bsFacturas.forEach((f, i) => {
+    f.numFactura = invoiceCounter + i;
+    f.nFactura = getInvoiceNumStr(f.numFactura);
+    const fechaSlug   = f.fecha ? f.fecha.split('/').reverse().join('') : '20260000';
+    const clienteSlug = f.cliente.replace(/[^A-Z0-9]/gi,'-').replace(/-+/g,'-').toUpperCase().substring(0,25);
+    const beatSlug    = f.beat.replace(/[^A-Z0-9]/gi,'-').replace(/-+/g,'-').toUpperCase().substring(0,35);
+    f.nombreNuevo = `${fechaSlug}_${String(f.numFactura).padStart(3,'0')}_BTS_${clienteSlug}_${beatSlug}`;
+  });
+}
+
+function renderBSTable() {
+  const wrap  = document.getElementById('bsTableWrap');
+  const tbody = document.getElementById('bsTableBody');
+  wrap.style.display = bsFacturas.length ? 'block' : 'none';
+
+  tbody.innerHTML = bsFacturas.map((f, i) => `
+    <tr>
+      <td style="color:var(--accent);text-align:center">${i+1}</td>
+      <td><input value="${f.fecha}" onchange="bsFacturas[${i}].fecha=this.value;reassignBSNumbers();renderBSTable()"></td>
+      <td><input value="${f.fechaCobro}" placeholder="—" onchange="bsFacturas[${i}].fechaCobro=this.value"></td>
+      <td style="color:var(--accent);white-space:nowrap;font-size:11px">${f.nFactura}</td>
+      <td><input value="${f.cliente}" onchange="bsFacturas[${i}].cliente=this.value;reassignBSNumbers();renderBSTable()" style="min-width:130px"></td>
+      <td style="color:var(--accent);text-align:center">BTS</td>
+      <td><input value="${f.beat}" onchange="bsFacturas[${i}].beat=this.value;reassignBSNumbers();renderBSTable()" style="min-width:200px"></td>
+      <td><input type="number" value="${f.totalEUR.toFixed(2)}" step="0.01" onchange="bsFacturas[${i}].totalEUR=parseFloat(this.value)||0;bsFacturas[${i}].beneficio=parseFloat(this.value)||0;renderBSTable()" style="min-width:65px;color:var(--accent2)"></td>
+      <td style="color:var(--muted)">0,00</td>
+      <td style="color:var(--muted)">0,00</td>
+      <td style="color:var(--accent)">${f.totalEUR.toFixed(2)}</td>
+      <td><input value="${f.cobrado}" placeholder="—" onchange="bsFacturas[${i}].cobrado=this.value" style="min-width:55px"></td>
+      <td style="color:var(--accent)">${f.beneficio.toFixed(2)}</td>
+      <td style="color:var(--muted)">0,00</td>
+      <td><input value="${f.estado}" onchange="bsFacturas[${i}].estado=this.value" style="min-width:120px"></td>
+      <td style="font-size:10px;color:var(--muted);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${f.invoice}">${f.invoice.substring(0,18)}…</td>
+      <td><button class="bs-del-btn" onclick="deleteBSRow(${i})">✕</button></td>
+    </tr>
+  `).join('');
+
+  // Preview nombres
+  let prev = document.getElementById('bsNamesPreview');
+  if (!prev) { prev = document.createElement('div'); prev.id='bsNamesPreview'; wrap.appendChild(prev); }
+  prev.style.cssText = 'margin-top:16px;padding:14px 18px;background:var(--surface);border:1px solid var(--border);border-radius:8px;';
+  prev.innerHTML = `
+    <p style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">📄 PDFs que se generarán</p>
+    ${bsFacturas.map(f=>`
+      <div style="margin-bottom:6px;">
+        <div style="font-size:11px;color:var(--accent);font-family:'DM Mono',monospace;">${f.nombreNuevo}.pdf</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:1px;">€${f.totalEUR.toFixed(2)} · $${f.totalUSD.toFixed(2)} USD</div>
+      </div>
+    `).join('')}
+  `;
+}
+
+function deleteBSRow(i) {
+  bsFacturas.splice(i,1);
+  reassignBSNumbers();
+  renderBSTable();
+}
+
+function clearBSFacturas() {
+  bsFacturas = []; bsStaged = [];
+  document.getElementById('bsTableWrap').style.display = 'none';
+  document.getElementById('bsConfirmBar').style.display = 'none';
+  document.getElementById('bsExportBtns').style.display = 'none';
+  document.getElementById('bsFileInput').value = '';
+  const prev = document.getElementById('bsNamesPreview');
+  if (prev) prev.remove();
+}
+
+async function exportBSPDFs() {
+  if (!bsFacturas.length) { showToast('⚠ No hay ventas cargadas'); return; }
+  const { jsPDF } = window.jspdf;
+  showToast(`⏳ Generando ${bsFacturas.length} PDFs...`);
+
+  for (const f of bsFacturas) {
+    const doc = new jsPDF({ unit:'mm', format:'a4' });
+    const W=210, H=297, ML=20, MR=20, CW=W-ML-MR;
+    const fmt = n => n.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €';
+
+    doc.setFillColor(255,255,255); doc.rect(0,0,W,H,'F');
+
+    // Cabecera
+    doc.setFont('helvetica','bold'); doc.setFontSize(26); doc.setTextColor(20,20,20);
+    doc.text('FACTURA', ML, 14);
+    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(120,120,120);
+    doc.text(`Nº ${f.nFactura}`, W-MR, 14, {align:'right'});
+    doc.setFillColor(30,30,30); doc.rect(ML, 18, CW, 0.5, 'F');
+
+    // Mis datos
+    let y = 26;
+    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(20,20,20);
+    doc.text(ME.nombre, ML, y);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(100,100,100);
+    y+=5; doc.text(`NIF: ${ME.nif}`, ML, y);
+    y+=4.5; doc.text(ME.direccion, ML, y);
+    if (ME.telefono) { y+=4.5; doc.text(`Tel: ${ME.telefono}`, ML, y); }
+    if (ME.email)    { y+=4.5; doc.text(ME.email, ML, y); }
+
+    // Fechas
+    doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(140,140,140);
+    doc.text('FECHA DE EMISIÓN',    W-MR-60, 26);
+    doc.text('FECHA DE VENCIMIENTO', W-MR, 26, {align:'right'});
+    doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(20,20,20);
+    doc.text(f.fecha||'—', W-MR-60, 31);
+    doc.text(f.fecha||'—', W-MR, 31, {align:'right'});
+
+    y+=8; doc.setDrawColor(210,210,210); doc.setLineWidth(0.4); doc.line(ML,y,W-MR,y);
+
+    // Cliente
+    y+=8; doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(140,140,140);
+    doc.text('FACTURADO A', ML, y);
+    y+=6; doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(20,20,20);
+    doc.text(f.cliente.toUpperCase(), ML, y);
+    y+=5; doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(100,100,100);
+    doc.text('CLIENTE INTERNACIONAL · BEATSTARS', ML, y);
+
+    y+=8; doc.setDrawColor(210,210,210); doc.line(ML,y,W-MR,y);
+
+    // Tabla
+    y+=8; doc.setFillColor(245,245,245); doc.rect(ML,y-5,CW,8,'F');
+    const C = {concepto:ML, base:ML+108, iva:ML+126, irpf:ML+146, total:W-MR};
+    doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(80,80,80);
+    doc.text('CONCEPTO',C.concepto,y); doc.text('BASE IMPONIBLE',C.base,y,{align:'right'});
+    doc.text('IVA',C.iva,y,{align:'right'}); doc.text('IRPF',C.irpf,y,{align:'right'});
+    doc.text('TOTAL',C.total,y,{align:'right'});
+
+    y+=8;
+    const conceptoLines = doc.splitTextToSize(f.beat, 100);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(20,20,20);
+    doc.text(conceptoLines, C.concepto, y);
+    doc.text(fmt(f.totalEUR),C.base,y,{align:'right'});
+    doc.text('0%',C.iva,y,{align:'right'}); doc.text('—',C.irpf,y,{align:'right'});
+    doc.setFont('helvetica','bold'); doc.text(fmt(f.totalEUR),C.total,y,{align:'right'});
+
+    y+=Math.max(conceptoLines.length*5,6)+4;
+    doc.setDrawColor(210,210,210); doc.line(ML,y,W-MR,y);
+
+    // Totales
+    y+=10;
+    const tLX=W-MR-60, tVX=W-MR, ROW=7;
+    const row=(lbl,val,bold=false)=>{
+      doc.setFont('helvetica',bold?'bold':'normal'); doc.setFontSize(bold?10:9);
+      doc.setTextColor(bold?20:80,bold?20:80,bold?20:80);
+      doc.text(lbl,tLX,y); doc.text(val,tVX,y,{align:'right'}); y+=ROW;
+    };
+    row('Base imponible', fmt(f.totalEUR));
+    row('IVA (0%) — Operación exenta internacional','0,00 €');
+    row('Retención IRPF','—');
+    y+=2; doc.setDrawColor(20,20,20); doc.setLineWidth(0.6); doc.line(tLX,y,tVX,y); y+=5;
+    row('TOTAL A COBRAR', fmt(f.totalEUR), true);
+
+    // Pago
+    y+=12; doc.setDrawColor(210,210,210); doc.setLineWidth(0.4); doc.line(ML,y,W-MR,y);
+    y+=8; doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(140,140,140);
+    doc.text('DATOS DE PAGO',ML,y);
+    y+=6; doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(60,60,60);
+    if (ME.iban) {
+      doc.text(`Banco: ${ME.banco}`,ML,y);
+      doc.text(`IBAN: ${ME.iban}`,ML,y+5);
+      doc.text(`Beneficiario: ${ME.nombre}`,ML,y+10);
+    } else {
+      doc.text('Los datos bancarios serán facilitados por separado.',ML,y);
+    }
+
+    // Ref BeatStars
+    y+=18; doc.setFontSize(7.5); doc.setTextColor(160,160,160);
+    doc.text(`Ref. BeatStars: ${f.invoice}`,ML,y);
+    doc.text(`Importe original: $${f.totalUSD.toFixed(2)} USD`,ML,y+4.5);
+
+    doc.setDrawColor(20,20,20); doc.setLineWidth(0.5); doc.line(ML,H-18,W-MR,H-18);
+    doc.save(`${f.nombreNuevo}.pdf`);
+
+    // Guardar en historial
+    history.unshift({
+      num: f.nFactura, cliente: f.cliente, concepto: f.beat,
+      total: f.totalEUR, fecha: f.fecha ? f.fecha.split('/').reverse().join('-') : '',
+      tipo: 'BTS', prueba: false
+    });
+
+    await new Promise(r => setTimeout(r,400));
+  }
+
+  localStorage.setItem('invoiceHistory_AMP', JSON.stringify(history));
+  invoiceCounter += bsFacturas.length;
+  saveCounter(); updateInvoiceNum(); renderHistory();
+  showToast(`✓ ${bsFacturas.length} PDFs generados · Contador → ${invoiceCounter}`);
+}
+
+function exportBSExcel() {
+  if (!bsFacturas.length) { showToast('⚠ No hay ventas cargadas'); return; }
+
+  // Guardar en historial las que no estén ya
+  let changed = false;
+  bsFacturas.forEach(f => {
+    const yaExiste = history.find(h => h.num === f.nFactura);
+    if (!yaExiste) {
+      history.unshift({
+        num: f.nFactura, cliente: f.cliente, concepto: f.beat,
+        total: f.totalEUR,
+        fecha: f.fecha ? f.fecha.split('/').reverse().join('-') : '',
+        tipo: 'BTS', prueba: false
+      });
+      changed = true;
+    }
+  });
+  if (changed) {
+    localStorage.setItem('invoiceHistory_AMP', JSON.stringify(history));
+    renderHistory();
+  }
+  const wb = XLSX.utils.book_new();
+  const rows = [];
+
+  rows.push(['CONTROL DE INGRESOS · AUTÓNOMO PRODUCTOR MUSICAL']);
+  rows.push([`Año ${new Date().getFullYear()}  |  Actualiza la columna 'Fecha cobro' y 'Estado' cuando entre el dinero en banco`]);
+  rows.push(['#','Fecha factura','Fecha cobro','N.º factura','Cliente','Tipo','Concepto','Base (€)','IVA (€)','Ret. IRPF (€)','Total factura (€)','Cobrado (€)','Beneficio','Total Impuestos','Estado','Notas']);
+  rows.push(['ABRIL - MAYO - JUNIO']);
+
+  const dataStart = 5;
+  bsFacturas.forEach((f,i) => {
+    rows.push([
+      i+1, f.fecha, f.fechaCobro||'', f.nFactura,
+      f.cliente, 'BTS', f.beat,
+      f.totalEUR, 0, 0, f.totalEUR,
+      f.cobrado||'', f.beneficio, 0,
+      f.estado||'CLIENTE INTERNACIONAL',
+      f.invoice
+    ]);
+  });
+
+  const dataEnd = dataStart - 1 + bsFacturas.length;
+  rows.push(['TOTALES T2 (parcial)','','','','','','',
+    {f:`SUM(H${dataStart}:H${dataEnd})`},{f:`SUM(I${dataStart}:I${dataEnd})`},
+    {f:`SUM(J${dataStart}:J${dataEnd})`},{f:`SUM(K${dataStart}:K${dataEnd})`},
+    {f:`SUM(L${dataStart}:L${dataEnd})`},{f:`SUM(M${dataStart}:M${dataEnd})`},
+    {f:`SUM(N${dataStart}:N${dataEnd})`},'','']);
+  rows.push([]);
+  rows.push(['Leyenda tipos:','FP = Fee producción','','MM = Mix & master','','ROY = Royalty máster','','DA = Derechos autor']);
+  rows.push(['','BT = Venta beat','','DJ = Caché DJ','','SES = Sesión suelta','','SON = Técnico sonido','','BTS = Venta en BeatStars']);
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:4},{wch:13},{wch:13},{wch:12},{wch:22},{wch:6},{wch:32},
+    {wch:10},{wch:9},{wch:12},{wch:14},{wch:12},{wch:12},{wch:14},{wch:20},{wch:45}];
+  ws['!merges'] = [{s:{r:0,c:0},e:{r:0,c:15}},{s:{r:1,c:0},e:{r:1,c:15}},{s:{r:3,c:0},e:{r:3,c:15}}];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'INGRESOS Q2');
+  const hoy = new Date();
+  XLSX.writeFile(wb, `BeatStars_Ingresos_${hoy.getFullYear()}${String(hoy.getMonth()+1).padStart(2,'0')}.xlsx`);
+  showToast('✓ Excel exportado');
+}
+
+
+init();
+</script>
+</body>
+</html>
