@@ -665,17 +665,77 @@
   }
 
   @media (max-width: 640px) {
-    .form-row, .form-row.triple { grid-template-columns: 1fr; }
-    header { flex-direction: column; align-items: flex-start; gap: 12px; }
-    .header-meta { text-align: left; }
-    .tabs { flex-wrap: wrap; }
-    .tab { flex: none; font-size: 10px; padding: 8px 10px; }
-    .bs-table { font-size: 10px; }
-    .bs-table th, .bs-table td { padding: 5px 6px; }
-    .history-item { flex-direction: column; align-items: flex-start; gap: 10px; }
-    #bulkBar { flex-wrap: wrap; justify-content: center; left: 16px; right: 16px; transform: none; }
-    .concepto-row { grid-template-columns: 1fr 90px 28px; }
+    /* LAYOUT GENERAL */
+    .app { padding: 16px 12px 100px; }
+    header { flex-direction: column; align-items: flex-start; gap: 10px; padding-bottom: 16px; }
+    .logo-block h1 { font-size: 20px; }
+    .header-meta { text-align: left; font-size: 10px; }
+
+    /* TABS — scroll horizontal */
+    .tabs { flex-wrap: nowrap; overflow-x: auto; gap: 2px; padding: 4px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab { flex-shrink: 0; font-size: 10px; padding: 8px 12px; white-space: nowrap; }
+
+    /* FORMULARIO */
+    .form-row, .form-row.triple, .form-row.single { grid-template-columns: 1fr; }
+    .invoice-form { padding: 16px 14px; }
+    .invoice-num-display { font-size: 16px; }
+    .cmd-bar { padding: 14px 16px; }
+    .cmd-input { font-size: 14px; }
+    .cmd-btn { padding: 8px 12px; font-size: 11px; }
     .actions { flex-direction: column; }
+    .btn-primary { padding: 12px; font-size: 13px; }
+
+    /* CONCEPTOS */
+    .concepto-row { grid-template-columns: 1fr 80px 28px; }
+
+    /* TOTALES */
+    .totals-box { padding: 14px; }
+    .total-value.big { font-size: 18px; }
+
+    /* CLIENTES */
+    .clients-grid { grid-template-columns: 1fr; }
+    .client-detail-view { flex-direction: column; align-items: flex-start; gap: 12px; }
+
+    /* HISTORIAL */
+    .history-item { flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 10px; }
+    .history-item > div:last-child { width: 100%; justify-content: flex-end; }
+    .history-amount { font-size: 16px; }
+
+    /* BARRA BULK FLOTANTE */
+    #bulkBar {
+      flex-wrap: wrap;
+      justify-content: center;
+      left: 8px; right: 8px;
+      bottom: 16px;
+      transform: none;
+      gap: 6px;
+      padding: 12px;
+      border-radius: 12px;
+    }
+    #bulkBar button { padding: 6px 10px; font-size: 10px; }
+    #bulkInfo { width: 100%; text-align: center; margin: 0; }
+
+    /* BEATSTARS */
+    .bs-drop-zone { padding: 28px 16px; }
+    #bsTableWrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .bs-table { font-size: 10px; min-width: 700px; }
+    .bs-table th, .bs-table td { padding: 5px 6px; }
+    #bsExportBtns { flex-wrap: wrap; gap: 6px; }
+    #bsConfirmBar { flex-direction: column; gap: 12px; }
+
+    /* RESUMEN */
+    #resumenContent > div[style*="grid-template-columns:1fr 1fr"] {
+      display: flex !important;
+      flex-direction: column !important;
+    }
+
+    /* MODALES */
+    .modal { padding: 20px 16px; margin: 12px; }
+    .modal-actions { flex-direction: column; }
+
+    /* FILTROS HISTORIAL */
+    .filter-btn { font-size: 9px; padding: 5px 8px; }
   }
 </style>
 </head>
