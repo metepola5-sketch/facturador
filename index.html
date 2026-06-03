@@ -695,6 +695,13 @@
         <span id="invoiceNumDisplay" style="color:var(--accent);font-weight:700;font-size:13px;">2026/013</span>
         <button onclick="openResetModal()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:4px;font-size:10px;cursor:pointer;font-family:'DM Mono',monospace;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">↺ RESET</button>
       </div>
+      <div style="margin-top:8px;display:flex;gap:6px;">
+        <button onclick="exportarDatos()" style="background:rgba(200,245,66,0.1);border:1px solid var(--accent);color:var(--accent);padding:4px 10px;border-radius:4px;font-size:10px;cursor:pointer;font-family:'DM Mono',monospace;letter-spacing:0.5px;">⬇ EXPORTAR DATOS</button>
+        <label style="background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:4px;font-size:10px;cursor:pointer;font-family:'DM Mono',monospace;letter-spacing:0.5px;">
+          ⬆ IMPORTAR DATOS
+          <input type="file" accept=".json" onchange="importarDatos(this)" style="display:none;">
+        </label>
+      </div>
     </div>
   </header>
 
@@ -2327,6 +2334,79 @@ function renderResumen() {
     </div>
   `;
 }
+
+// ═══════════════════════════════════
+// EXPORTAR / IMPORTAR DATOS
+// ═══════════════════════════════════
+function exportarDatos() {
+  const datos = {
+    version: 1,
+    exportado: new Date().toISOString(),
+    invoiceCounter,
+    invoiceYear,
+    TC_USD_EUR_user,
+    history,
+    clients,
+  };
+  const blob = new Blob([JSON.stringify(datos, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `facturador_backup_${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('✓ Datos exportados correctamente');
+}
+
+function importarDatos(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const datos = JSON.parse(e.target.result);
+      if (!datos.version) throw new Error('Formato no válido');
+      if (!confirm(`¿Importar datos del ${datos.exportado?.slice(0,10) || 'backup'}?\nEsto reemplazará el historial, clientes y contador actuales.`)) return;
+
+      if (datos.invoiceCounter) {
+        invoiceCounter = datos.invoiceCounter;
+        invoiceYear = datos.invoiceYear || new Date().getFullYear();
+        saveCounter();
+      }
+      if (datos.TC_USD_EUR_user) {
+        TC_USD_EUR_user = datos.TC_USD_EUR_user;
+        localStorage.setItem('invoiceTC_AMP', TC_USD_EUR_user);
+      }
+      if (datos.history) {
+        history = datos.history.map(h => ({
+          num: h.num||'—', cliente: h.cliente||'Desconocido',
+          concepto: h.concepto||'', total: parseFloat(h.total)||0,
+          fecha: h.fecha||'', tipo: h.tipo||'',
+          prueba: !!h.prueba, cobrada: !!h.cobrada,
+        }));
+        localStorage.setItem('invoiceHistory_AMP', JSON.stringify(history));
+      }
+      if (datos.clients) { clients = datos.clients; saveClients(); }
+
+      updateInvoiceNum();
+      renderClientGrids();
+      renderHistory();
+      const tcEl = document.getElementById('tcInput');
+      if (tcEl) tcEl.value = TC_USD_EUR_user.toFixed(3);
+      showToast(`✓ Importados: ${history.length} facturas · ${clients.length} clientes`);
+    } catch(err) {
+      showToast('⚠ Error al importar: archivo no válido');
+    }
+    input.value = '';
+  };
+  reader.readAsText(file);
+}
+
+// ═══════════════════════════════════
+// BEATSTARS CSV IMPORTER
+// ═══════════════════════════════════
 let bsFacturas = [];
 let bsStaged = [];
 const TC_USD_EUR = 0.93;
