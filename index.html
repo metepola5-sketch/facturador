@@ -3011,7 +3011,7 @@ async function generarInsights() {
   lista.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:16px 0;">Analizando tu historial...</div>';
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('https://facturador-proxy.metepola5.workers.dev', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
@@ -3100,7 +3100,7 @@ async function chatPregunta(pregunta) {
   chatHistorial.push({role: 'user', content: pregunta});
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('https://facturador-proxy.metepola5.workers.dev', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
