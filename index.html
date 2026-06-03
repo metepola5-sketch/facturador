@@ -810,8 +810,13 @@
 
     <!-- FORM -->
     <div class="invoice-form">
-      <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:20px; flex-wrap:wrap;">
         <div class="invoice-num-display" id="invoiceNumDisplayForm">Nº 2026/013</div>
+        <button class="edit-num-btn" onclick="toggleEditNum()" title="Editar número de factura">✏</button>
+        <input type="number" id="invoiceNumInput" min="1" style="display:none;width:70px;background:var(--surface2);border:1px solid var(--accent);border-radius:4px;padding:4px 8px;color:var(--text);font-family:'DM Mono',monospace;font-size:14px;outline:none;"
+          onchange="setInvoiceNum(this.value)" onblur="toggleEditNum()">
+        <span id="invoiceNumSaved" style="display:none; font-size:11px; color:var(--accent);">✓ guardado</span>
+        <button onclick="openResetModal()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:3px 10px;border-radius:4px;font-size:10px;cursor:pointer;font-family:'DM Mono',monospace;margin-left:4px;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">↺ RESET</button>
       </div>
       <div class="form-row">
         <div class="field">
