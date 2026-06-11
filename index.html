@@ -1185,14 +1185,21 @@
       <!-- CALCULADORA SALARIO -->
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:20px;">
         <p style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:16px;">Calculadora de salario</p>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
           <div class="field">
-            <label>Cobrado el mes anterior (neto, sin impuestos)</label>
-            <input type="number" id="salCobrado" placeholder="0.00" oninput="calcularSalario()" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;color:var(--text);font-family:'DM Mono',monospace;font-size:14px;outline:none;width:100%;">
+            <label>Ingresos netos del mes (€)</label>
+            <input type="number" id="salCobrado" placeholder="0.00" oninput="calcularSalario()"
+              style="background:var(--surface2);border:1px solid var(--accent);border-radius:6px;padding:10px 14px;color:var(--text);font-family:'DM Mono',monospace;font-size:14px;outline:none;width:100%;">
           </div>
           <div class="field">
             <label>Objetivo de ahorro (%)</label>
-            <input type="number" id="salAhorroPct" value="20" min="0" max="80" oninput="calcularSalario()" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;color:var(--text);font-family:'DM Mono',monospace;font-size:14px;outline:none;width:100%;">
+            <input type="number" id="salAhorroPct" value="20" min="0" max="80" oninput="calcularSalario()"
+              style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;color:var(--text);font-family:'DM Mono',monospace;font-size:14px;outline:none;width:100%;">
+          </div>
+          <div class="field">
+            <label>Mes de referencia</label>
+            <input type="month" id="salMes" oninput="calcularSalario()"
+              style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;outline:none;width:100%;">
           </div>
         </div>
         <div id="salResultado"></div>
@@ -3499,11 +3506,12 @@ function calcularSalario() {
   if (!el) return;
   const cobrado = parseFloat(document.getElementById('salCobrado')?.value) || 0;
   const ahorroPct = parseFloat(document.getElementById('salAhorroPct')?.value) || 20;
+  const mes = document.getElementById('salMes')?.value || '';
   const totalFijos = gastosFijos.reduce((s,g) => s+(g.importe||0), 0);
   const fmt = n => n.toLocaleString('es-ES',{minimumFractionDigits:2}) + ' €';
 
   if (!cobrado) {
-    el.innerHTML = '<p style="color:var(--muted);font-size:12px;">Introduce lo cobrado el mes anterior para calcular tu salario.</p>';
+    el.innerHTML = '<p style="color:var(--muted);font-size:12px;">Introduce tus ingresos netos del mes para calcular tu salario.</p>';
     return;
   }
 
@@ -3511,36 +3519,62 @@ function calcularSalario() {
   const salarioIdeal = cobrado - ahorro;
   const margen = salarioIdeal - totalFijos;
   const semaforo = margen >= 200 ? '🟢' : margen >= 0 ? '🟡' : '🔴';
-  const msg = margen >= 200 ? `Cómodo. Puedes pagarte ${fmt(salarioIdeal)} y ahorrar ${fmt(ahorro)}.`
+  const msg = margen >= 200
+    ? `Cómodo. Puedes pagarte ${fmt(salarioIdeal)} y ahorrar ${fmt(ahorro)}.`
     : margen >= 0 ? `Justo. Cubres gastos fijos pero el margen es pequeño (${fmt(margen)}).`
     : `Insuficiente. Te faltan ${fmt(Math.abs(margen))} para cubrir todos los gastos fijos.`;
 
   el.innerHTML = `
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px;">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px;">
       <div style="background:var(--surface2);border-radius:8px;padding:12px;text-align:center;">
-        <p style="font-size:9px;color:var(--muted);margin-bottom:4px;">COBRADO</p>
+        <p style="font-size:9px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;">INGRESOS NETOS</p>
         <p style="font-size:16px;font-family:'Syne',sans-serif;font-weight:800;color:#4dff91;">${fmt(cobrado)}</p>
       </div>
       <div style="background:var(--surface2);border-radius:8px;padding:12px;text-align:center;">
-        <p style="font-size:9px;color:var(--muted);margin-bottom:4px;">AHORRO (${ahorroPct}%)</p>
+        <p style="font-size:9px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;">AHORRO (${ahorroPct}%)</p>
         <p style="font-size:16px;font-family:'Syne',sans-serif;font-weight:800;color:var(--accent);">${fmt(ahorro)}</p>
       </div>
       <div style="background:var(--surface2);border-radius:8px;padding:12px;text-align:center;">
-        <p style="font-size:9px;color:var(--muted);margin-bottom:4px;">SALARIO</p>
+        <p style="font-size:9px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;">SALARIO</p>
         <p style="font-size:16px;font-family:'Syne',sans-serif;font-weight:800;color:var(--accent2);">${fmt(salarioIdeal)}</p>
       </div>
       <div style="background:var(--surface2);border-radius:8px;padding:12px;text-align:center;">
-        <p style="font-size:9px;color:var(--muted);margin-bottom:4px;">GASTOS FIJOS</p>
+        <p style="font-size:9px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;">GASTOS FIJOS</p>
         <p style="font-size:16px;font-family:'Syne',sans-serif;font-weight:800;color:#ff4d4d;">${fmt(totalFijos)}</p>
       </div>
     </div>
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;display:flex;align-items:center;gap:12px;">
-      <span style="font-size:24px;">${semaforo}</span>
-      <div>
-        <p style="font-size:13px;font-family:'Syne',sans-serif;font-weight:700;margin-bottom:3px;">${msg}</p>
-        <p style="font-size:11px;color:var(--muted);">Margen disponible tras fijos: <span style="color:${margen>=0?'var(--accent)':'#ff4d4d'}">${margen>=0?'+':''}${fmt(margen)}</span></p>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span style="font-size:24px;">${semaforo}</span>
+        <div>
+          <p style="font-size:13px;font-family:'Syne',sans-serif;font-weight:700;margin-bottom:3px;">${msg}</p>
+          <p style="font-size:11px;color:var(--muted);">Margen tras gastos fijos: <span style="color:${margen>=0?'var(--accent)':'#ff4d4d'}">${margen>=0?'+':''}${fmt(margen)}</span></p>
+        </div>
       </div>
+      ${mes ? `<button onclick="guardarMesSalario()" class="btn-secondary" style="font-size:11px;padding:8px 14px;white-space:nowrap;">💾 Guardar ${mes}</button>` : ''}
     </div>`;
+}
+
+function guardarMesSalario() {
+  const cobrado = parseFloat(document.getElementById('salCobrado')?.value) || 0;
+  const ahorroPct = parseFloat(document.getElementById('salAhorroPct')?.value) || 20;
+  const mes = document.getElementById('salMes')?.value || '';
+  if (!mes) { showToast('⚠ Selecciona el mes de referencia'); return; }
+  const totalFijos = gastosFijos.reduce((s,g) => s+(g.importe||0), 0);
+  const ahorro = cobrado * (ahorroPct/100);
+  const salario = cobrado - ahorro;
+
+  // Combinar con datos bancarios del mes si existen
+  const datosBanco = finHistoricoMeses[mes] || {};
+  finHistoricoMeses[mes] = {
+    ...datosBanco, mes,
+    ingresosNetos: cobrado,
+    ahorro, salario,
+    gastosFijosTotal: totalFijos,
+  };
+  localStorage.setItem('finHistorico_AMP', JSON.stringify(finHistoricoMeses));
+  showToast(`✓ Mes ${mes} guardado`);
+  renderFinHistorico();
 }
 
 async function analizarConIA() {
