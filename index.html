@@ -1120,10 +1120,11 @@
           <select id="finFiltroCat" onchange="renderFinTabla()" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 12px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;outline:none;">
             <option value="">Todas</option>
             <option>Alimentación</option><option>Restaurantes</option><option>Ocio</option>
-            <option>Gasolina</option><option>Viajes</option><option>Parking</option>
+            <option>Transporte</option><option>Gasolina</option><option>Viajes</option><option>Parking</option>
             <option>Suscripciones</option><option>Suscripciones profesionales</option>
             <option>Ropa</option><option>Hogar</option><option>Alquiler</option>
-            <option>Salud/Belleza</option><option>Profesional</option><option>Otros</option>
+            <option>Salud/Belleza</option><option>Profesional</option>
+            <option>Gasto puntual</option><option>Traspaso interno</option><option>Otros</option>
           </select>
           <span id="finResumenRapido" style="font-size:11px;color:var(--muted);"></span>
         </div>
@@ -3085,42 +3086,23 @@ function exportBSExcel() {
 let finMovimientos = [];
 let finMovFiltrados = [];
 let finFiltroActivo = 'todos';
-let finAprendizaje = {}; // {conceptoKey: categoria}
+let finAprendizaje = {}; // {conceptoKey: categoria} — aprendizaje del usuario
 let gastosFijos = [];
 let finHistoricoMeses = {};
 
-// Categorías por defecto
-const FIN_CATEGORIAS_DEFAULT = {
-  mercadona:'Alimentación', ahorramas:'Alimentación', dia:'Alimentación',
-  carniceria:'Alimentación', frutiverso:'Alimentación', supercor:'Alimentación',
-  lidl:'Alimentación', alcampo:'Alimentación', eroski:'Alimentación',
-  'vip kids':'Alimentación',
-  restaurant:'Restaurantes', 'rest ':'Restaurantes', ginos:'Restaurantes',
-  'w9 asian':'Restaurantes', 'stars bar':'Restaurantes', kebap:'Restaurantes',
-  croqueteria:'Restaurantes', 'nata lisboa':'Restaurantes', 'la casita':'Restaurantes',
-  'carniceria la luna':'Restaurantes',
-  timeout:'Ocio', courir:'Ropa', primark:'Ropa', zara:'Ropa',
-  repsol:'Gasolina', plenergy:'Gasolina', 'ctra a3':'Gasolina',
-  iberia:'Viajes', 'linhas aereas':'Viajes', apk2:'Parking',
-  spotify:'Suscripciones', 'apple.com':'Suscripciones', netflix:'Suscripciones',
-  splice:'Suscripciones profesionales', tubebuddy:'Suscripciones profesionales',
-  tintoreria:'Hogar', ume:'Salud/Belleza',
-  gestor:'Profesional', gestoria:'Profesional',
-};
-
 const FIN_CATEGORIAS_LIST = [
-  'Alimentación','Restaurantes','Ocio','Gasolina','Viajes','Parking',
+  'Alimentación','Restaurantes','Ocio','Transporte','Gasolina','Viajes','Parking',
   'Suscripciones','Suscripciones profesionales','Ropa','Hogar','Alquiler',
-  'Salud/Belleza','Profesional','Traspaso interno','Otros'
+  'Salud/Belleza','Profesional','Gasto puntual','Traspaso interno','Otros'
 ];
 
 const CAT_COLORS = {
   'Alimentación':'#4dff91','Restaurantes':'#f5a623','Ocio':'#f5a623',
-  'Gasolina':'#aaa','Viajes':'#7eb8f7','Parking':'#aaa',
+  'Transporte':'#7eb8f7','Gasolina':'#aaa','Viajes':'#7eb8f7','Parking':'#aaa',
   'Suscripciones':'#c8f542','Suscripciones profesionales':'#c8f542',
   'Ropa':'#ff9de2','Hogar':'#888','Alquiler':'#ff4d4d',
   'Salud/Belleza':'#ff9de2','Profesional':'#7eb8f7',
-  'Traspaso interno':'#444','Otros':'#666',
+  'Gasto puntual':'#f5a623','Traspaso interno':'#444','Otros':'#666',
 };
 
 function normalizarConcepto(s) {
@@ -3129,22 +3111,83 @@ function normalizarConcepto(s) {
 
 function categorizarMovimiento(concepto, movimiento) {
   const key = normalizarConcepto(concepto + ' ' + movimiento);
-  // Primero buscar en aprendizaje
+  // Primero buscar en aprendizaje del usuario
   for (const [k, cat] of Object.entries(finAprendizaje)) {
     if (key.includes(k)) return cat;
   }
-  // Luego en defaults
-  const c = key;
-  for (const [k, cat] of Object.entries(FIN_CATEGORIAS_DEFAULT)) {
-    if (c.includes(k)) return cat;
-  }
-  return 'Otros';
+  return 'Otros'; // La IA se encargará del resto
 }
 
 function aprenderCategoria(concepto, movimiento, categoria) {
   const key = normalizarConcepto(concepto).substring(0,25);
   if (key.length > 3) finAprendizaje[key] = categoria;
   localStorage.setItem('finAprendizaje_AMP', JSON.stringify(finAprendizaje));
+}
+
+// Categorizar con IA todos los conceptos únicos de una vez
+async function categorizarConIA(movimientos) {
+  // Filtrar los que ya tienen categoría por aprendizaje
+  const sinCat = movimientos.filter(m => !m.traspaso && m.categoria === 'Otros');
+  if (!sinCat.length) return;
+
+  // Conceptos únicos para no repetir peticiones
+  const conceptosUnicos = [...new Set(sinCat.map(m => m.concepto || m.movimiento).filter(Boolean))];
+  if (!conceptosUnicos.length) return;
+
+  try {
+    const response = await fetch('https://facturador-proxy.metepola5.workers.dev', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1000,
+        system: `Eres un categorizador de movimientos bancarios españoles. Categoriza cada concepto bancario en UNA de estas categorías exactas:
+Alimentación, Restaurantes, Ocio, Transporte, Gasolina, Viajes, Parking, Suscripciones, Suscripciones profesionales, Ropa, Hogar, Alquiler, Salud/Belleza, Profesional, Gasto puntual, Traspaso interno, Otros
+
+Reglas:
+- Metro, bus, Renfe, Cabify, Uber, taxi → Transporte
+- Repsol, BP, gasolinera → Gasolina
+- Spotify, Netflix, Apple, Splice, software → Suscripciones
+- Gestoría, material profesional → Suscripciones profesionales
+- Mercadona, supermercado, alimentación → Alimentación
+- Restaurante, bar, cafetería → Restaurantes
+- Cine, concierto, juegos → Ocio
+- Amazon, compra online no recurrente, electrodoméstico → Gasto puntual
+- Farmacia, médico → Salud/Belleza
+- Traspaso, transferencia propia → Traspaso interno
+- Ropa, calzado → Ropa
+- Alquiler, hipoteca → Alquiler
+- Luz, agua, internet, gas → Hogar
+
+Devuelve SOLO un JSON objeto con formato: {"CONCEPTO": "Categoría", ...}
+Sin texto adicional, sin markdown.`,
+        messages: [{
+          role: 'user',
+          content: `Categoriza estos conceptos bancarios:\n${conceptosUnicos.slice(0,60).join('\n')}`
+        }]
+      })
+    });
+
+    const data = await response.json();
+    const raw = data.content?.[0]?.text || '{}';
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return;
+    const cats = JSON.parse(jsonMatch[0]);
+
+    // Aplicar categorías a los movimientos
+    movimientos.forEach(m => {
+      if (m.traspaso) return;
+      const concepto = m.concepto || m.movimiento;
+      if (cats[concepto]) {
+        m.categoria = cats[concepto];
+        // Aprender para el futuro
+        aprenderCategoria(concepto, '', cats[concepto]);
+      }
+    });
+
+  } catch(err) {
+    console.warn('Error categorizando con IA:', err);
+  }
 }
 
 function esTrspaso(mov, concepto) {
@@ -3216,11 +3259,20 @@ function handleFinFile(file) {
 
       finMovimientos.sort((a,b) => b.fecha.localeCompare(a.fecha));
       poblarSelectorMes();
+
+      // Mostrar tabla con categorías preliminares mientras la IA trabaja
       filtrarMovimientos();
       document.getElementById('finMesSelector').style.display = 'block';
       document.getElementById('btnAnalizarBanco').style.display = 'block';
       document.getElementById('btnGuardarMes').style.display = 'block';
-      showToast(`✓ ${finMovimientos.length} movimientos cargados`);
+      showToast(`✓ ${finMovimientos.length} movimientos cargados · Categorizando con IA...`);
+
+      // Categorizar con IA en segundo plano
+      categorizarConIA(finMovimientos).then(() => {
+        filtrarMovimientos();
+        showToast('✅ Categorización IA completada');
+      });
+
     } catch(err) { showToast('⚠ Error: ' + err.message); }
   };
   reader.readAsArrayBuffer(file);
