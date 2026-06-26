@@ -769,6 +769,7 @@
     <button class="tab active" onclick="switchTab('facturar')">⚡ Generar Factura</button>
     <button class="tab" onclick="switchTab('clientes')">👥 Clientes</button>
     <button class="tab" onclick="switchTab('beatstars')">🎵 BeatStars</button>
+    <button class="tab" onclick="switchTab('gastos')">🧾 Gastos</button>
     <button class="tab" onclick="switchTab('historial')">📋 Historial</button>
     <button class="tab" onclick="switchTab('resumen')">📊 Resumen</button>
     <button class="tab" onclick="switchTab('finanzas')">💳 Finanzas</button>
@@ -997,6 +998,69 @@
         <tbody id="bsTableBody"></tbody>
       </table>
       <p style="font-size:10px;color:var(--muted);margin-top:8px;">* Importes en € usando tipo de cambio 0,93 USD/EUR. Edita cualquier celda antes de exportar.</p>
+    </div>
+
+  </div>
+
+  <!-- PANEL GASTOS -->
+  <div id="panel-gastos" class="panel">
+
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+      <div>
+        <p class="section-title">Gastos deducibles</p>
+        <p style="font-size:12px;color:var(--muted);margin-top:4px;">Sube las facturas de tus gastos · La IA extrae los datos y genera el Excel para tu control</p>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;display:none;" id="gastosExportBtns">
+        <button class="btn-secondary" onclick="clearGastos()" style="font-size:11px;padding:8px 14px;">✕ Limpiar</button>
+        <button class="btn-primary" onclick="exportGastosExcel()" style="padding:10px 20px;font-size:13px;">⬇ Exportar Excel</button>
+      </div>
+    </div>
+
+    <!-- DROP ZONE -->
+    <div id="gastosDropZone" class="bs-drop-zone"
+      ondragover="event.preventDefault();this.classList.add('drag-over')"
+      ondragleave="this.classList.remove('drag-over')"
+      ondrop="handleGastosDrop(event)"
+      onclick="document.getElementById('gastosFileInput').click()">
+      <div class="bs-drop-icon">🧾</div>
+      <p>Arrastra las facturas de gastos aquí</p>
+      <p style="font-size:11px;color:var(--muted);margin-top:4px;">PDF o imágenes (JPG, PNG) · Puedes subir varias a la vez</p>
+      <input type="file" id="gastosFileInput" accept=".pdf,.jpg,.jpeg,.png" multiple style="display:none" onchange="handleGastosFilesStaged(this.files)">
+    </div>
+
+    <!-- CONFIRMACIÓN -->
+    <div id="gastosConfirmBar" style="display:none;margin-top:16px;background:var(--surface);border:1px solid var(--accent);border-radius:10px;padding:16px 20px;align-items:center;justify-content:space-between;gap:16px;">
+      <div>
+        <p id="gastosConfirmMsg" style="font-size:14px;color:var(--text);font-family:'Syne',sans-serif;font-weight:700;"></p>
+        <p id="gastosConfirmList" style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.8;"></p>
+      </div>
+      <div style="display:flex;gap:10px;flex-shrink:0;">
+        <button class="btn-secondary" onclick="cancelGastosStage()" style="font-size:11px;padding:8px 14px;">✕ Cancelar</button>
+        <button class="btn-primary" onclick="importGastosStaged()" style="padding:12px 24px;font-size:14px;">⚡ ANALIZAR CON IA</button>
+      </div>
+    </div>
+
+    <!-- TABLA GASTOS -->
+    <div id="gastosTablaWrap" style="display:none;margin-top:24px;overflow-x:auto;">
+      <table class="bs-table" id="gastosTabla">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Fecha</th>
+            <th>Proveedor</th>
+            <th>Nº factura/ref.</th>
+            <th>Sección</th>
+            <th>Descripción</th>
+            <th>Base (€)</th>
+            <th>IVA (€)</th>
+            <th>Total (€)</th>
+            <th>Deducible</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="gastosTablaBody"></tbody>
+      </table>
+      <p style="font-size:10px;color:var(--muted);margin-top:8px;">* Revisa y corrige cualquier dato antes de exportar. La sección determina en qué bloque de tu Excel se copiará.</p>
     </div>
 
   </div>
@@ -1618,7 +1682,7 @@ function setInvoiceNum(val) {
 // ═══════════════════════════════════
 function switchTab(name) {
   document.querySelectorAll('.tab').forEach((t,i) => {
-    const tabs = ['facturar','clientes','beatstars','historial','resumen','finanzas','ia'];
+    const tabs = ['facturar','clientes','beatstars','gastos','historial','resumen','finanzas','ia'];
     t.classList.toggle('active', tabs[i] === name);
   });
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -2673,6 +2737,191 @@ function importarDatos(input) {
   reader.readAsText(file);
 }
 
+// ═══════════════════════════════════
+// GASTOS DEDUCIBLES
+// ═══════════════════════════════════
+let gastosStaged = [];
+let gastosProcesados = [];
+
+const GASTOS_SECCIONES = ['Gastos fijos mensuales', 'Suscripciones software', 'Otros gastos'];
+
+function handleGastosDrop(e) {
+  e.preventDefault();
+  document.getElementById('gastosDropZone').classList.remove('drag-over');
+  handleGastosFilesStaged(e.dataTransfer.files);
+}
+
+function handleGastosFilesStaged(files) {
+  const validos = Array.from(files).filter(f => f.type.match(/pdf|image/));
+  if (!validos.length) { showToast('⚠ Solo se aceptan PDF e imágenes'); return; }
+  gastosStaged = validos;
+  const bar = document.getElementById('gastosConfirmBar');
+  document.getElementById('gastosConfirmMsg').textContent =
+    `${validos.length} factura${validos.length>1?'s':''} de gasto lista${validos.length>1?'s':''} para analizar`;
+  document.getElementById('gastosConfirmList').textContent = validos.map(f=>f.name).join(' · ');
+  bar.style.display = 'flex';
+}
+
+function cancelGastosStage() {
+  gastosStaged = [];
+  document.getElementById('gastosConfirmBar').style.display = 'none';
+  document.getElementById('gastosFileInput').value = '';
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function importGastosStaged() {
+  if (!gastosStaged.length) return;
+  document.getElementById('gastosConfirmBar').style.display = 'none';
+  showToast(`⏳ Analizando ${gastosStaged.length} facturas con IA...`);
+
+  for (const file of gastosStaged) {
+    try {
+      const base64 = await fileToBase64(file);
+      const mediaType = file.type === 'application/pdf' ? 'application/pdf' : file.type;
+      const blockType = mediaType === 'application/pdf' ? 'document' : 'image';
+
+      const response = await fetch('https://facturador-proxy.metepola5.workers.dev', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 600,
+          system: `Eres un asistente que extrae datos de facturas de gastos para un productor musical autónomo español. Analiza la factura/recibo y devuelve SOLO un JSON con este formato exacto, sin texto adicional:
+{
+  "fecha": "DD/MM/AAAA",
+  "proveedor": "Nombre del proveedor en mayúsculas",
+  "numFactura": "número o referencia de factura, vacío si no hay",
+  "descripcion": "breve descripción del gasto",
+  "base": 0.00,
+  "iva": 0.00,
+  "total": 0.00,
+  "seccion": "Gastos fijos mensuales|Suscripciones software|Otros gastos",
+  "deducible": true
+}
+Reglas para "seccion":
+- Suscripciones de software/SaaS recurrentes (Spotify, Apple, Splice, Microsoft, Adobe, Claude, Suno, Serato, etc.) → "Suscripciones software"
+- Gastos fijos recurrentes no-software (alquiler estudio, gestoría, cuota autónomos, seguro) → "Gastos fijos mensuales"
+- Cualquier otra compra puntual relacionada con la actividad (equipo, material, formación) → "Otros gastos"
+Si no encuentras IVA desglosado, calcúlalo como total/1.21*0.21 redondeado a 2 decimales y la base como total-iva.
+"deducible" es true salvo que claramente no tenga relación con la actividad profesional musical.`,
+          messages: [{
+            role: 'user',
+            content: [
+              {type: blockType, source: {type:'base64', media_type: mediaType, data: base64}},
+              {type: 'text', text: 'Extrae los datos de esta factura de gasto.'}
+            ]
+          }]
+        })
+      });
+
+      const data = await response.json();
+      const raw = data.content?.[0]?.text || '{}';
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      const extraido = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
+
+      gastosProcesados.push({
+        fecha: extraido.fecha || '',
+        proveedor: extraido.proveedor || 'DESCONOCIDO',
+        numFactura: extraido.numFactura || '',
+        descripcion: extraido.descripcion || '',
+        base: parseFloat(extraido.base) || 0,
+        iva: parseFloat(extraido.iva) || 0,
+        total: parseFloat(extraido.total) || 0,
+        seccion: GASTOS_SECCIONES.includes(extraido.seccion) ? extraido.seccion : 'Otros gastos',
+        deducible: extraido.deducible !== false,
+        archivo: file.name,
+      });
+
+    } catch(err) {
+      gastosProcesados.push({
+        fecha:'', proveedor:'ERROR AL LEER', numFactura:'', descripcion: file.name,
+        base:0, iva:0, total:0, seccion:'Otros gastos', deducible:true, archivo:file.name,
+      });
+    }
+  }
+
+  renderGastosTabla();
+  document.getElementById('gastosTablaWrap').style.display = 'block';
+  document.getElementById('gastosExportBtns').style.display = 'flex';
+  document.getElementById('gastosFileInput').value = '';
+  showToast(`✓ ${gastosProcesados.length} facturas procesadas`);
+}
+
+function renderGastosTabla() {
+  const tbody = document.getElementById('gastosTablaBody');
+  tbody.innerHTML = gastosProcesados.map((g, i) => `
+    <tr>
+      <td style="color:var(--accent);text-align:center;">${i+1}</td>
+      <td><input value="${g.fecha}" onchange="gastosProcesados[${i}].fecha=this.value" style="min-width:80px"></td>
+      <td><input value="${g.proveedor}" onchange="gastosProcesados[${i}].proveedor=this.value" style="min-width:120px"></td>
+      <td><input value="${g.numFactura}" onchange="gastosProcesados[${i}].numFactura=this.value" style="min-width:70px"></td>
+      <td>
+        <select onchange="gastosProcesados[${i}].seccion=this.value" style="background:transparent;border:none;color:var(--accent);font-size:11px;font-family:'DM Mono',monospace;outline:none;">
+          ${GASTOS_SECCIONES.map(s => `<option ${g.seccion===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </td>
+      <td><input value="${g.descripcion}" onchange="gastosProcesados[${i}].descripcion=this.value" style="min-width:160px"></td>
+      <td><input type="number" step="0.01" value="${g.base}" onchange="gastosProcesados[${i}].base=parseFloat(this.value)||0" style="width:70px;color:var(--text)"></td>
+      <td><input type="number" step="0.01" value="${g.iva}" onchange="gastosProcesados[${i}].iva=parseFloat(this.value)||0" style="width:65px;color:var(--accent2)"></td>
+      <td><input type="number" step="0.01" value="${g.total}" onchange="gastosProcesados[${i}].total=parseFloat(this.value)||0" style="width:70px;color:var(--accent);font-weight:700"></td>
+      <td style="text-align:center;">
+        <input type="checkbox" ${g.deducible?'checked':''} onchange="gastosProcesados[${i}].deducible=this.checked" style="accent-color:var(--accent);width:14px;height:14px;cursor:pointer;">
+      </td>
+      <td><button class="bs-del-btn" onclick="gastosProcesados.splice(${i},1);renderGastosTabla()">✕</button></td>
+    </tr>
+  `).join('');
+}
+
+function clearGastos() {
+  gastosStaged = []; gastosProcesados = [];
+  document.getElementById('gastosTablaWrap').style.display = 'none';
+  document.getElementById('gastosConfirmBar').style.display = 'none';
+  document.getElementById('gastosExportBtns').style.display = 'none';
+  document.getElementById('gastosFileInput').value = '';
+}
+
+function exportGastosExcel() {
+  if (!gastosProcesados.length) { showToast('⚠ No hay gastos procesados'); return; }
+  const wb = XLSX.utils.book_new();
+  const rows = [];
+
+  rows.push(['CONTROL DE GASTOS DEDUCIBLES']);
+  rows.push(['Guarda siempre: factura + justificante de pago + relación con la actividad']);
+  rows.push(['#','Fecha factura','Proveedor','N.º factura / ref.','Categoría','Descripción','Base (€)','IVA soportado (€)','Total (€)','Deducible','Archivo']);
+
+  GASTOS_SECCIONES.forEach(seccion => {
+    rows.push([`— ${seccion}`]);
+    const items = gastosProcesados.filter(g => g.seccion === seccion);
+    items.forEach((g, i) => {
+      rows.push([
+        i+1, g.fecha, g.proveedor, g.numFactura, seccion, g.descripcion,
+        g.base, g.iva, g.total, g.deducible ? 'Sí' : 'No', g.archivo
+      ]);
+    });
+  });
+
+  const totalBase = gastosProcesados.reduce((s,g)=>s+(g.deducible?g.base:0),0);
+  const totalIva = gastosProcesados.reduce((s,g)=>s+(g.deducible?g.iva:0),0);
+  const totalTotal = gastosProcesados.reduce((s,g)=>s+(g.deducible?g.total:0),0);
+  rows.push([]);
+  rows.push(['TOTALES GASTOS (acum.)','','','','','',totalBase,totalIva,totalTotal]);
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:4},{wch:13},{wch:18},{wch:14},{wch:22},{wch:30},{wch:10},{wch:14},{wch:10},{wch:10},{wch:25}];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'GASTOS');
+  const hoy = new Date();
+  XLSX.writeFile(wb, `Gastos_Deducibles_${hoy.getFullYear()}${String(hoy.getMonth()+1).padStart(2,'0')}.xlsx`);
+  showToast('✓ Excel exportado');
+}
 // ═══════════════════════════════════
 // BEATSTARS CSV IMPORTER
 // ═══════════════════════════════════
