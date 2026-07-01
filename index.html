@@ -3566,16 +3566,15 @@ function renderFinKPIs() {
   const fmt = n => n.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €';
   const reales = finMovFiltrados.filter(m => !m.traspaso);
 
-  // Calcular importe efectivo teniendo en cuenta vinculaciones
+  // Calcular importe efectivo teniendo en cuenta grupos de compensación
   const importeEfectivo = (m) => {
-    if (m.vinculadoCon !== undefined) {
-      const otro = finMovimientos[m.vinculadoCon];
-      if (otro && !otro.traspaso) {
-        // Solo contar el neto en el movimiento de mayor índice para no duplicar
-        const idxA = finMovimientos.indexOf(m);
-        const idxB = m.vinculadoCon;
-        if (idxA < idxB) return m.importe + otro.importe; // neto en el primero
-        else return 0; // el segundo no cuenta
+    if (m.grupoId !== undefined) {
+      if (m.esAncla) {
+        // El ancla cuenta con el neto del grupo completo
+        return calcularNetoGrupo(finMovimientos.indexOf(m));
+      } else {
+        // Los miembros no cuentan (el ancla ya incluye su importe)
+        return 0;
       }
     }
     return m.importe;
@@ -3640,22 +3639,23 @@ function renderFinTabla() {
     const catColor = CAT_COLORS[m.categoria] || '#666';
 
     // Estado de vinculación
-    const vinculado = m.vinculadoCon !== undefined;
+    const enGrupo = m.grupoId !== undefined;
+    const esAncla = m.esAncla === true;
     const seleccionado = finVincularSeleccionado === idxGlobal;
-    const neto = vinculado ? m.importe + (finMovimientos[m.vinculadoCon]?.importe||0) : null;
 
     let bgRow = '';
     if (m.traspaso) bgRow = 'opacity:0.35;';
     else if (m.puntual) bgRow = 'opacity:0.65;';
-    else if (vinculado) bgRow = 'background:rgba(245,166,35,0.05);border-left:2px solid var(--accent2);';
-    else if (seleccionado) bgRow = 'background:rgba(200,245,66,0.08);border-left:2px solid var(--accent);';
+    else if (esAncla) bgRow = 'background:rgba(245,166,35,0.07);border-left:3px solid var(--accent2);';
+    else if (enGrupo) bgRow = 'background:rgba(245,166,35,0.04);border-left:3px solid rgba(245,166,35,0.4);';
+    else if (seleccionado) bgRow = 'background:rgba(200,245,66,0.08);border-left:3px solid var(--accent);';
 
     return `
       <tr style="${bgRow}">
         <td style="white-space:nowrap;font-size:10px;color:var(--muted);">${m.fecha.split('-').reverse().join('/')}</td>
         <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;" title="${m.concepto}">
           ${m.concepto||m.movimiento}
-          ${vinculado ? `<span style="font-size:9px;color:var(--accent2);margin-left:4px;">🔗 neto: ${neto>=0?'+':''}${neto.toLocaleString('es-ES',{minimumFractionDigits:2})}€</span>` : ''}
+          ${etiquetaGrupo(m, idxGlobal)}
         </td>
         <td>
           <select onchange="finMovFiltrados[${idx}].categoria=this.value;aprenderCategoria('${m.concepto.replace(/'/g,'')}','${m.movimiento.replace(/'/g,'')}',this.value);renderFinKPIs()"
@@ -3675,8 +3675,8 @@ function renderFinTabla() {
             ${m.traspaso ? '↩' : '⇄'}
           </button>
           <button onclick="iniciarVinculacion(${idxGlobal})"
-            title="${vinculado ? 'Desvincular' : seleccionado ? 'Cancelar vinculación' : 'Vincular como compensación'}"
-            style="background:transparent;border:1px solid ${vinculado?'var(--accent2)':seleccionado?'var(--accent)':'var(--border)'};color:${vinculado?'var(--accent2)':seleccionado?'var(--accent)':'var(--muted)'};padding:2px 5px;border-radius:4px;cursor:pointer;font-size:10px;">
+            title="${esAncla && finVincularSeleccionado===idxGlobal ? 'Cerrar grupo' : enGrupo ? 'Disolver grupo' : seleccionado ? 'Cancelar' : 'Vincular compensación'}"
+            style="background:transparent;border:1px solid ${esAncla||enGrupo?'var(--accent2)':seleccionado?'var(--accent)':'var(--border)'};color:${esAncla||enGrupo?'var(--accent2)':seleccionado?'var(--accent)':'var(--muted)'};padding:2px 5px;border-radius:4px;cursor:pointer;font-size:10px;">
             🔗
           </button>
           <button onclick="eliminarMovimiento(${idxGlobal})"
@@ -3691,61 +3691,119 @@ function renderFinTabla() {
   }).join('');
 }
 
-// ── VINCULACIÓN DE COMPENSACIONES ──────────────
-let finVincularSeleccionado = null;
+// ── VINCULACIÓN DE COMPENSACIONES (N a 1) ──────
+let finVincularSeleccionado = null; // índice global del movimiento ancla
 
 function eliminarMovimiento(idxGlobal) {
   const m = finMovimientos[idxGlobal];
-  // Si estaba vinculado, desvincular el otro
-  if (m.vinculadoCon !== undefined) {
-    const otro = finMovimientos[m.vinculadoCon];
-    if (otro) delete otro.vinculadoCon;
+  // Si estaba en un grupo, quitarlo del grupo
+  if (m.grupoId !== undefined) {
+    finMovimientos.forEach(mv => {
+      if (mv.grupoId === m.grupoId && mv !== m) {
+        mv.grupoMembers = (mv.grupoMembers||[]).filter(i => i !== idxGlobal);
+        if ((mv.grupoMembers||[]).length === 0) {
+          delete mv.grupoId;
+          delete mv.grupoMembers;
+          delete mv.esAncla;
+        }
+      }
+    });
+    delete m.grupoId;
+    delete m.grupoMembers;
+    delete m.esAncla;
   }
   finMovimientos.splice(idxGlobal, 1);
+  finVincularSeleccionado = null;
   filtrarMovimientos();
 }
 
 function iniciarVinculacion(idxGlobal) {
   const m = finMovimientos[idxGlobal];
 
-  // Si ya está vinculado → desvincular
-  if (m.vinculadoCon !== undefined) {
-    const otro = finMovimientos[m.vinculadoCon];
-    if (otro) delete otro.vinculadoCon;
-    delete m.vinculadoCon;
+  // Si el movimiento ya tiene grupo → desvincularlo
+  if (m.grupoId !== undefined) {
+    const gid = m.grupoId;
+    finMovimientos.forEach(mv => {
+      if (mv.grupoId === gid) {
+        delete mv.grupoId;
+        delete mv.grupoMembers;
+        delete mv.esAncla;
+      }
+    });
     finVincularSeleccionado = null;
     renderFinKPIs();
     renderFinTabla();
-    showToast('↩ Vinculación eliminada');
+    showToast('↩ Grupo de compensación disuelto');
     return;
   }
 
-  // Si no hay nada seleccionado → seleccionar este
+  // Sin ancla seleccionada → este se convierte en ancla
   if (finVincularSeleccionado === null) {
     finVincularSeleccionado = idxGlobal;
+    m.grupoId = idxGlobal; // el grupoId es el índice del ancla
+    m.esAncla = true;
+    m.grupoMembers = [];
     renderFinTabla();
-    showToast('🔗 Ahora pulsa 🔗 en el movimiento que lo compensa');
+    showToast('🔗 Ancla seleccionada · Pulsa 🔗 en los Bizums que la compensan · Pulsa 🔗 de nuevo en el ancla para cerrar');
     return;
   }
 
-  // Si hay uno seleccionado y es el mismo → cancelar
+  // Si pulso de nuevo en el ancla → cerrar el grupo
   if (finVincularSeleccionado === idxGlobal) {
-    finVincularSeleccionado = null;
-    renderFinTabla();
+    const ancla = finMovimientos[idxGlobal];
+    const count = (ancla.grupoMembers||[]).length;
+    if (count === 0) {
+      // Sin miembros → cancelar
+      delete ancla.grupoId;
+      delete ancla.esAncla;
+      delete ancla.grupoMembers;
+      finVincularSeleccionado = null;
+      renderFinTabla();
+      showToast('↩ Vinculación cancelada');
+    } else {
+      finVincularSeleccionado = null;
+      const neto = calcularNetoGrupo(idxGlobal);
+      renderFinKPIs();
+      renderFinTabla();
+      showToast(`✓ Grupo cerrado · ${count} compensación${count>1?'es':''} · Neto: ${neto>=0?'+':''}${neto.toLocaleString('es-ES',{minimumFractionDigits:2})}€`);
+    }
     return;
   }
 
-  // Vincular los dos
-  const idxA = finVincularSeleccionado;
-  const idxB = idxGlobal;
-  finMovimientos[idxA].vinculadoCon = idxB;
-  finMovimientos[idxB].vinculadoCon = idxA;
-  finVincularSeleccionado = null;
+  // Añadir este movimiento al grupo del ancla
+  const anclaIdx = finVincularSeleccionado;
+  const ancla = finMovimientos[anclaIdx];
+  const gid = anclaIdx;
 
-  const neto = finMovimientos[idxA].importe + finMovimientos[idxB].importe;
+  m.grupoId = gid;
+  m.esAncla = false;
+  ancla.grupoMembers = [...(ancla.grupoMembers||[]), idxGlobal];
+
+  const neto = calcularNetoGrupo(anclaIdx);
   renderFinKPIs();
   renderFinTabla();
-  showToast(`✓ Vinculados · Neto: ${neto>=0?'+':''}${neto.toLocaleString('es-ES',{minimumFractionDigits:2})}€`);
+  showToast(`🔗 Añadido · Neto actual: ${neto>=0?'+':''}${neto.toLocaleString('es-ES',{minimumFractionDigits:2})}€ · Sigue añadiendo o pulsa el ancla para cerrar`);
+}
+
+function calcularNetoGrupo(anclaIdx) {
+  const ancla = finMovimientos[anclaIdx];
+  if (!ancla || !ancla.esAncla) return 0;
+  let neto = ancla.importe;
+  (ancla.grupoMembers||[]).forEach(i => {
+    if (finMovimientos[i]) neto += finMovimientos[i].importe;
+  });
+  return neto;
+}
+
+function etiquetaGrupo(m, idxGlobal) {
+  if (m.grupoId === undefined) return '';
+  if (m.esAncla) {
+    const neto = calcularNetoGrupo(idxGlobal);
+    const count = (m.grupoMembers||[]).length;
+    return `<span style="font-size:9px;color:var(--accent2);margin-left:4px;">🔗 ancla (${count}) · neto: ${neto>=0?'+':''}${neto.toLocaleString('es-ES',{minimumFractionDigits:2})}€</span>`;
+  } else {
+    return `<span style="font-size:9px;color:var(--accent2);margin-left:4px;">🔗 comp.</span>`;
+  }
 }
 
 // Guardar mes en histórico
