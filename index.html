@@ -3565,9 +3565,25 @@ function renderFinKPIs() {
   const mes = document.getElementById('finMes').value;
   const fmt = n => n.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €';
   const reales = finMovFiltrados.filter(m => !m.traspaso);
-  const ingresos = reales.filter(m => m.importe > 0).reduce((s,m) => s+m.importe, 0);
-  const gastos = Math.abs(reales.filter(m => m.importe < 0).reduce((s,m) => s+m.importe, 0));
-  const gastosSinPuntuales = Math.abs(reales.filter(m => m.importe < 0 && !m.puntual).reduce((s,m) => s+m.importe, 0));
+
+  // Calcular importe efectivo teniendo en cuenta vinculaciones
+  const importeEfectivo = (m) => {
+    if (m.vinculadoCon !== undefined) {
+      const otro = finMovimientos[m.vinculadoCon];
+      if (otro && !otro.traspaso) {
+        // Solo contar el neto en el movimiento de mayor índice para no duplicar
+        const idxA = finMovimientos.indexOf(m);
+        const idxB = m.vinculadoCon;
+        if (idxA < idxB) return m.importe + otro.importe; // neto en el primero
+        else return 0; // el segundo no cuenta
+      }
+    }
+    return m.importe;
+  };
+
+  const ingresos = reales.filter(m => importeEfectivo(m) > 0).reduce((s,m) => s+importeEfectivo(m), 0);
+  const gastos = Math.abs(reales.filter(m => importeEfectivo(m) < 0).reduce((s,m) => s+importeEfectivo(m), 0));
+  const gastosSinPuntuales = Math.abs(reales.filter(m => importeEfectivo(m) < 0 && !m.puntual).reduce((s,m) => s+importeEfectivo(m), 0));
   const neto = ingresos - gastos;
   const netoSinPuntuales = ingresos - gastosSinPuntuales;
   const facturadoCobrado = history.filter(h => !h.prueba && h.cobrada && h.fecha && h.fecha.startsWith(mes))
@@ -3619,33 +3635,117 @@ function renderFinTabla() {
 
   tbody.innerHTML = movs.map((m) => {
     const idx = finMovFiltrados.indexOf(m);
+    const idxGlobal = finMovimientos.indexOf(m);
     const color = m.importe > 0 ? '#4dff91' : '#ff4d4d';
     const catColor = CAT_COLORS[m.categoria] || '#666';
+
+    // Estado de vinculación
+    const vinculado = m.vinculadoCon !== undefined;
+    const seleccionado = finVincularSeleccionado === idxGlobal;
+    const neto = vinculado ? m.importe + (finMovimientos[m.vinculadoCon]?.importe||0) : null;
+
+    let bgRow = '';
+    if (m.traspaso) bgRow = 'opacity:0.35;';
+    else if (m.puntual) bgRow = 'opacity:0.65;';
+    else if (vinculado) bgRow = 'background:rgba(245,166,35,0.05);border-left:2px solid var(--accent2);';
+    else if (seleccionado) bgRow = 'background:rgba(200,245,66,0.08);border-left:2px solid var(--accent);';
+
     return `
-      <tr style="${m.traspaso ? 'opacity:0.35;' : m.puntual ? 'opacity:0.65;' : ''}">
+      <tr style="${bgRow}">
         <td style="white-space:nowrap;font-size:10px;color:var(--muted);">${m.fecha.split('-').reverse().join('/')}</td>
-        <td style="max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;" title="${m.concepto}">${m.concepto||m.movimiento}</td>
+        <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;" title="${m.concepto}">
+          ${m.concepto||m.movimiento}
+          ${vinculado ? `<span style="font-size:9px;color:var(--accent2);margin-left:4px;">🔗 neto: ${neto>=0?'+':''}${neto.toLocaleString('es-ES',{minimumFractionDigits:2})}€</span>` : ''}
+        </td>
         <td>
           <select onchange="finMovFiltrados[${idx}].categoria=this.value;aprenderCategoria('${m.concepto.replace(/'/g,'')}','${m.movimiento.replace(/'/g,'')}',this.value);renderFinKPIs()"
-            style="background:transparent;border:none;color:${catColor};font-size:10px;font-family:'DM Mono',monospace;cursor:pointer;outline:none;max-width:140px;">
+            style="background:transparent;border:none;color:${catColor};font-size:10px;font-family:'DM Mono',monospace;cursor:pointer;outline:none;max-width:130px;">
             ${FIN_CATEGORIAS_LIST.map(c => `<option value="${c}" ${m.categoria===c?'selected':''}>${c}</option>`).join('')}
           </select>
         </td>
         <td style="text-align:center;">
           <input type="checkbox" ${m.puntual?'checked':''} onchange="finMovFiltrados[${idx}].puntual=this.checked;renderFinKPIs()"
-            title="Gasto puntual (excluido del gasto habitual)"
-            style="accent-color:var(--accent2);width:14px;height:14px;cursor:pointer;">
+            style="accent-color:var(--accent2);width:14px;height:14px;cursor:pointer;" title="Gasto puntual">
         </td>
         <td style="text-align:right;font-weight:700;color:${color};white-space:nowrap;font-size:12px;">${m.importe>0?'+':''}${m.importe.toLocaleString('es-ES',{minimumFractionDigits:2})} €</td>
-        <td>
+        <td style="display:flex;gap:3px;align-items:center;">
           <button onclick="finMovFiltrados[${idx}].traspaso=!finMovFiltrados[${idx}].traspaso;finMovFiltrados[${idx}].categoria=finMovFiltrados[${idx}].traspaso?'Traspaso interno':categorizarMovimiento('${m.concepto.replace(/'/g,'')}','');renderFinKPIs();renderFinTabla()"
             title="${m.traspaso?'Marcar como real':'Marcar como traspaso'}"
-            style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:2px 6px;border-radius:4px;cursor:pointer;font-size:10px;">
+            style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:2px 5px;border-radius:4px;cursor:pointer;font-size:10px;">
             ${m.traspaso ? '↩' : '⇄'}
+          </button>
+          <button onclick="iniciarVinculacion(${idxGlobal})"
+            title="${vinculado ? 'Desvincular' : seleccionado ? 'Cancelar vinculación' : 'Vincular como compensación'}"
+            style="background:transparent;border:1px solid ${vinculado?'var(--accent2)':seleccionado?'var(--accent)':'var(--border)'};color:${vinculado?'var(--accent2)':seleccionado?'var(--accent)':'var(--muted)'};padding:2px 5px;border-radius:4px;cursor:pointer;font-size:10px;">
+            🔗
+          </button>
+          <button onclick="eliminarMovimiento(${idxGlobal})"
+            title="Eliminar del análisis"
+            style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:2px 5px;border-radius:4px;cursor:pointer;font-size:10px;"
+            onmouseover="this.style.borderColor='#ff4d4d';this.style.color='#ff4d4d'"
+            onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+            🗑
           </button>
         </td>
       </tr>`;
   }).join('');
+}
+
+// ── VINCULACIÓN DE COMPENSACIONES ──────────────
+let finVincularSeleccionado = null;
+
+function eliminarMovimiento(idxGlobal) {
+  const m = finMovimientos[idxGlobal];
+  // Si estaba vinculado, desvincular el otro
+  if (m.vinculadoCon !== undefined) {
+    const otro = finMovimientos[m.vinculadoCon];
+    if (otro) delete otro.vinculadoCon;
+  }
+  finMovimientos.splice(idxGlobal, 1);
+  filtrarMovimientos();
+}
+
+function iniciarVinculacion(idxGlobal) {
+  const m = finMovimientos[idxGlobal];
+
+  // Si ya está vinculado → desvincular
+  if (m.vinculadoCon !== undefined) {
+    const otro = finMovimientos[m.vinculadoCon];
+    if (otro) delete otro.vinculadoCon;
+    delete m.vinculadoCon;
+    finVincularSeleccionado = null;
+    renderFinKPIs();
+    renderFinTabla();
+    showToast('↩ Vinculación eliminada');
+    return;
+  }
+
+  // Si no hay nada seleccionado → seleccionar este
+  if (finVincularSeleccionado === null) {
+    finVincularSeleccionado = idxGlobal;
+    renderFinTabla();
+    showToast('🔗 Ahora pulsa 🔗 en el movimiento que lo compensa');
+    return;
+  }
+
+  // Si hay uno seleccionado y es el mismo → cancelar
+  if (finVincularSeleccionado === idxGlobal) {
+    finVincularSeleccionado = null;
+    renderFinTabla();
+    return;
+  }
+
+  // Vincular los dos
+  const idxA = finVincularSeleccionado;
+  const idxB = idxGlobal;
+  finMovimientos[idxA].vinculadoCon = idxB;
+  finMovimientos[idxB].vinculadoCon = idxA;
+  finVincularSeleccionado = null;
+
+  const neto = finMovimientos[idxA].importe + finMovimientos[idxB].importe;
+  renderFinKPIs();
+  renderFinTabla();
+  showToast(`✓ Vinculados · Neto: ${neto>=0?'+':''}${neto.toLocaleString('es-ES',{minimumFractionDigits:2})}€`);
 }
 
 // Guardar mes en histórico
