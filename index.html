@@ -1826,6 +1826,203 @@ function parseCmd() {
 // ═══════════════════════════════════
 // GENERAR PDF
 // ═══════════════════════════════════
+function regenerarPDF(idx) {
+  const h = history[idx];
+  if (!h) { showToast('⚠ No se encontró la factura'); return; }
+  if (!h.conceptos || !h.base) { showToast('⚠ Esta factura no tiene desglose guardado para regenerar'); return; }
+
+  const fmt = n => n.toLocaleString('es-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' €';
+  const fmtDate = d => d ? d.split('-').reverse().join('/') : '—';
+  const b = h.base || 0;
+  const iva = h.iva || 0;
+  const ivaPct = h.ivaPct || 0;
+  const irpf = h.irpf || 0;
+  const irpfPct = h.irpfPct || 0;
+  const total = h.total || 0;
+  const fecha = h.fecha || '';
+  const venc = h.venc || '';
+  const numFact = h.num || '';
+  const conceptosList = h.conceptos || [{desc: h.concepto || 'Servicios', importe: b}];
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W = 210, H = 297;
+  const ML = 20, MR = 20;
+  const CW = W - ML - MR;
+
+  doc.setFillColor(255,255,255);
+  doc.rect(0,0,W,H,'F');
+
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(26);
+  doc.setTextColor(20,20,20);
+  doc.text('FACTURA', ML, 14);
+
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(10);
+  doc.setTextColor(120,120,120);
+  doc.text(`Nº ${numFact}`, W-MR, 14, {align:'right'});
+
+  doc.setFillColor(30,30,30);
+  doc.rect(ML, 18, CW, 0.5, 'F');
+
+  let y = 26;
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(10);
+  doc.setTextColor(20,20,20);
+  doc.text(ME.nombre, ML, y);
+
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(100,100,100);
+  y += 5; doc.text(`NIF: ${ME.nif}`, ML, y);
+  y += 4.5; doc.text(ME.direccion, ML, y);
+  if (ME.telefono) { y += 4.5; doc.text(`Tel: ${ME.telefono}`, ML, y); }
+  if (ME.email)    { y += 4.5; doc.text(ME.email, ML, y); }
+
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(140,140,140);
+  doc.text('FECHA DE EMISIÓN',    W-MR-60, 26);
+  doc.text('FECHA DE VENCIMIENTO', W-MR,   26, {align:'right'});
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(9);
+  doc.setTextColor(20,20,20);
+  doc.text(fmtDate(fecha), W-MR-60, 31);
+  doc.text(fmtDate(venc),  W-MR,    31, {align:'right'});
+
+  y += 8;
+  doc.setDrawColor(210,210,210);
+  doc.setLineWidth(0.4);
+  doc.line(ML, y, W-MR, y);
+
+  y += 8;
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(140,140,140);
+  doc.text('FACTURADO A', ML, y);
+
+  y += 6;
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(11);
+  doc.setTextColor(20,20,20);
+  doc.text(h.cliente || '', ML, y);
+
+  y += 5;
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(100,100,100);
+  if (h.clienteNif) doc.text(`NIF/CIF: ${h.clienteNif}`, ML, y);
+  if (h.clienteDireccion) {
+    y += 4.5;
+    const dirLines = doc.splitTextToSize(h.clienteDireccion, 110);
+    doc.text(dirLines, ML, y);
+    y += (dirLines.length - 1) * 4;
+  }
+  if (h.clienteEmail) { y += 4.5; doc.text(h.clienteEmail, ML, y); }
+
+  y += 8;
+  doc.setDrawColor(210,210,210);
+  doc.line(ML, y, W-MR, y);
+
+  y += 8;
+  doc.setFillColor(245,245,245);
+  doc.rect(ML, y-5, CW, 8, 'F');
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(80,80,80);
+  doc.text('CONCEPTO', ML, y);
+  doc.text('IMPORTE', W-MR, y, {align:'right'});
+
+  y += 8;
+  const cList = conceptosList.filter(c => c.desc || c.importe > 0);
+  cList.forEach((c, idx2) => {
+    if (y > H - 80) { doc.addPage(); y = 20; }
+    const lines = doc.splitTextToSize(c.desc || '—', CW - 50);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(9);
+    doc.setTextColor(20,20,20);
+    doc.text(lines, ML, y);
+    doc.setFont('helvetica', cList.length > 1 ? 'normal' : 'bold');
+    doc.text(fmt(c.importe||0), W-MR, y, {align:'right'});
+    y += Math.max(lines.length * 5, 6);
+    if (idx2 < cList.length - 1) {
+      doc.setDrawColor(230,230,230);
+      doc.setLineWidth(0.3);
+      doc.line(ML, y+1, W-MR, y+1);
+      y += 6;
+    }
+  });
+
+  y += 4;
+  doc.setDrawColor(210,210,210);
+  doc.setLineWidth(0.4);
+  doc.line(ML, y, W-MR, y);
+
+  y += 10;
+  const tLabelX = W - MR - 60;
+  const tValX   = W - MR;
+  const ROW = 7;
+
+  const drawRow = (label, value, bold=false, color=[60,60,60]) => {
+    doc.setFont('helvetica', bold ? 'bold' : 'normal');
+    doc.setFontSize(bold ? 10 : 9);
+    doc.setTextColor(...color);
+    doc.text(label, tLabelX, y);
+    doc.text(value, tValX, y, {align:'right'});
+    y += ROW;
+  };
+
+  drawRow('Base imponible', fmt(b));
+  drawRow(`IVA (${ivaPct}%)`, `+ ${fmt(iva)}`);
+  drawRow(`Retención IRPF (${irpfPct}%)`, irpfPct > 0 ? `- ${fmt(irpf)}` : '—');
+
+  y += 2;
+  doc.setDrawColor(20,20,20);
+  doc.setLineWidth(0.6);
+  doc.line(tLabelX, y, tValX, y);
+  y += 5;
+
+  drawRow('TOTAL A COBRAR', fmt(total), true, [20,20,20]);
+
+  y += 12;
+  doc.setDrawColor(210,210,210);
+  doc.setLineWidth(0.4);
+  doc.line(ML, y, W-MR, y);
+
+  y += 8;
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(140,140,140);
+  doc.text('DATOS DE PAGO', ML, y);
+
+  y += 6;
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(60,60,60);
+  if (ME.iban) {
+    doc.text(`Banco: ${ME.banco}`, ML, y);
+    doc.text(`IBAN: ${ME.iban}`, ML, y+5);
+    doc.text(`Beneficiario: ${ME.nombre}`, ML, y+10);
+  } else {
+    doc.text('Los datos bancarios serán facilitados por separado.', ML, y);
+  }
+
+  doc.setDrawColor(20,20,20);
+  doc.setLineWidth(0.5);
+  doc.line(ML, H-18, W-MR, H-18);
+
+  // Nombre del archivo
+  const tipo = h.tipo || 'FP';
+  const clienteSlug = (h.cliente||'CLIENTE').toUpperCase().replace(/\s+/g,'-').replace(/[^A-Z0-9\-]/g,'');
+  const conceptoSlug = (h.concepto||'CONCEPTO').toUpperCase().replace(/\s+/g,'-').replace(/[^A-Z0-9\-]/g,'');
+  const fechaSlug = fecha ? fecha.replace(/-/g,'') : 'SIN-FECHA';
+  const numPad = numFact ? numFact.replace('2026-','') : '000';
+  const filename = `${fechaSlug}_${numPad}_${tipo}_${clienteSlug}_${conceptoSlug}.pdf`;
+  doc.save(filename);
+  showToast(`✓ PDF regenerado: ${filename}`);
+}
+
 function generatePDF() {
   if (selectedClientIdx === null) { showToast('⚠ Selecciona un cliente primero'); return; }
   const conceptosValidos = conceptos.filter(c => c.desc.trim() || c.importe > 0);
@@ -2035,8 +2232,14 @@ function generatePDF() {
   const filename = `${fechaSlug}_${numPad}_${tipo}_${clienteSlug}_${nombreArchivo}.pdf`;
   doc.save(filename);
 
-  // Historial
-  history.unshift({ num: numFact, cliente: client.nombre, concepto, total, fecha, tipo, prueba: false });
+  // Historial — guardar con desglose completo
+  history.unshift({
+    num: numFact, cliente: client.nombre, clienteNif: client.nif,
+    clienteDireccion: client.direccion, clienteEmail: client.email,
+    concepto, total, base: b, iva, ivaPct, irpf, irpfPct,
+    fecha, venc, tipo, prueba: false,
+    conceptos: JSON.parse(JSON.stringify(conceptos)), // copia de los conceptos
+  });
   localStorage.setItem('invoiceHistory_AMP', JSON.stringify(history));
   invoiceCounter++;
   saveCounter();
@@ -2353,29 +2556,41 @@ function renderHistory() {
   el.innerHTML = filtrado.map(h => {
     const i = history.indexOf(h);
     const checked = selectedIds.has(i);
+    const fmtE = n => (n||0).toLocaleString('es-ES',{minimumFractionDigits:2}) + ' €';
     return `
     <div class="history-item" style="${h.prueba ? 'opacity:0.45;' : ''}${checked ? 'border-color:var(--accent);background:rgba(200,245,66,0.04);' : ''}">
-      <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">
+      <div style="display:flex;align-items:flex-start;gap:12px;flex:1;min-width:0;">
         <input type="checkbox" class="h-checkbox" data-idx="${i}" ${checked?'checked':''} onchange="toggleSelect(${i},this.checked)"
-          style="accent-color:var(--accent);width:15px;height:15px;cursor:pointer;flex-shrink:0;">
-        <span class="history-num">${h.num}</span>
+          style="accent-color:var(--accent);width:15px;height:15px;cursor:pointer;flex-shrink:0;margin-top:3px;">
         <div style="flex:1;min-width:0;">
           <div class="history-client" style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;">
-            ${h.cliente}
+            <span style="color:var(--accent);font-size:11px;font-weight:700;">${h.num}</span>
+            <span>${h.cliente}</span>
             ${h.tipo ? `<span style="font-size:10px;color:var(--accent);background:rgba(200,245,66,0.1);padding:1px 7px;border-radius:4px;">${h.tipo}</span>` : ''}
             ${h.prueba ? `<span style="font-size:10px;color:#ff4d4d;background:rgba(255,77,77,0.1);padding:1px 7px;border-radius:4px;">PRUEBA</span>` : ''}
             ${h.cobrada ? `<span style="font-size:10px;color:#4dff91;background:rgba(77,255,145,0.1);padding:1px 7px;border-radius:4px;">✓ COBRADA</span>` : `<span style="font-size:10px;color:var(--accent2);background:rgba(245,166,35,0.1);padding:1px 7px;border-radius:4px;">⏳ PENDIENTE</span>`}
           </div>
           <div class="history-concept">${h.concepto}</div>
+          ${h.base !== undefined ? `
+          <div style="display:flex;gap:10px;margin-top:5px;flex-wrap:wrap;">
+            <span style="font-size:10px;color:var(--muted);">Base: <span style="color:var(--text);">${fmtE(h.base)}</span></span>
+            <span style="font-size:10px;color:var(--muted);">IVA ${h.ivaPct||0}%: <span style="color:var(--accent2);">+${fmtE(h.iva)}</span></span>
+            <span style="font-size:10px;color:var(--muted);">IRPF ${h.irpfPct||0}%: <span style="color:#ff4d4d;">-${fmtE(h.irpf)}</span></span>
+          </div>` : ''}
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-        <div style="text-align:right;">
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+        <div style="text-align:right;margin-right:2px;">
           <div class="history-amount">${(h.total||0).toLocaleString('es-ES',{minimumFractionDigits:2})} €</div>
           <div class="history-date">${h.fecha ? h.fecha.split('-').reverse().join('/') : ''}</div>
         </div>
+        ${h.base !== undefined ? `
+        <button onclick="regenerarPDF(${i})" title="Descargar factura de nuevo"
+          style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 7px;border-radius:5px;cursor:pointer;font-size:11px;"
+          onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+          onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">⬇</button>` : ''}
         <button onclick="toggleCobrada(${i})" title="${h.cobrada?'Marcar pendiente':'Marcar cobrada'}"
-          style="background:transparent;border:1px solid ${h.cobrada?'#4dff91':'var(--border)'};color:${h.cobrada?'#4dff91':'var(--muted)'};padding:4px 7px;border-radius:5px;cursor:pointer;font-size:11px;white-space:nowrap;">
+          style="background:transparent;border:1px solid ${h.cobrada?'#4dff91':'var(--border)'};color:${h.cobrada?'#4dff91':'var(--muted)'};padding:4px 7px;border-radius:5px;cursor:pointer;font-size:11px;">
           ${h.cobrada ? '✓' : '€'}
         </button>
         <button onclick="togglePrueba(${i})"
